@@ -1,284 +1,258 @@
 # SiYuan MCP Server
 
-一个为思源笔记（SiYuan）设计的 Model Context Protocol (MCP) 服务器，提供完整的 AI 集成和智能知识管理功能。
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for [SiYuan Note](https://b3log.org/siyuan/), enabling AI assistants (Claude, Cursor, etc.) to read, write, and manage your SiYuan workspace — including full support for **Attribute View databases** (SiYuan's relational database system, similar to Notion databases).
 
-## 🌟 核心特性
+---
 
-### 笔记管理
-- **笔记本操作**: 创建、列表、打开、关闭、重命名、删除笔记本
-- **文档管理**: 创建、读取、更新、删除文档，支持批量操作
-- **块操作**: 创建、读取、更新、删除笔记块，支持批量操作
-- **块属性**: 设置和获取块属性，支持自定义属性管理
+## Features
 
-### 搜索功能
-- **简单搜索**: 快速关键词搜索
-- **递归搜索**: 深度内容挖掘，支持层级遍历
-- **文档内搜索**: 在指定文档中精确查找
-- **批量读取**: 高效批量读取多个文档
+### Attribute View Databases (unique to this fork)
+SiYuan's Attribute View system lets you create relational databases inside your notes. This MCP server exposes full read/write access to them:
 
-### 模板与渲染
-- **模板渲染**: 支持标准模板语法
-- **Sprig模板**: 支持Sprig函数库的高级模板功能
-- **动态内容**: 基于模板生成格式化内容
+| Tool | Description |
+|------|-------------|
+| `av_list_databases` | List all Attribute View databases in the workspace (name, column count, row count) |
+| `av_render_database` | Read a full database: all columns (with types) and all rows (with parsed cell values) |
+| `av_create_row` | Create a new detached row with an optional name and initial cell values |
+| `av_update_row` | Update a single cell in a database row |
+| `av_query_database` | Filter rows by column name/value (partial match, case-insensitive) |
 
-### 导出功能
-- **Markdown导出**: 导出为标准Markdown格式
-- **多格式导出**: 支持PDF、Word、HTML等多种格式
-- **树状结构导出**: 保留文档层级关系的JSON导出
+**Supported column types:** `block` (primary key), `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `relation`, `rollup`
 
-### 资源管理
-- **文件上传**: 上传图片、文档等资源文件
-- **资源列表**: 列出文档中的所有资源
-- **资源重命名**: 重命名资源文件
-- **OCR识别**: 图片文字识别功能
+### Notebooks & Documents
+| Tool | Description |
+|------|-------------|
+| `list_notebooks` / `notebooks.list` | List all notebooks |
+| `create_notebook` | Create a new notebook |
+| `create_document` | Create a document with Markdown content |
+| `create_subdocument` | Create a child document under a parent path |
+| `docs.create` | Create a document at a specific path |
+| `docs.list` | List documents in a notebook |
+| `batch_read_all_documents` | Batch-read all documents in a notebook |
 
-### 数据操作
-- **SQL查询**: 执行SQL查询，支持复杂的数据检索
-- **文件操作**: 读取、写入、删除文件
-- **文件列表**: 列出目录中的文件
+### Blocks
+| Tool | Description |
+|------|-------------|
+| `blocks.get` | Get block content (kramdown) |
+| `blocks.create` | Insert a new block |
+| `blocks.update` | Update a block |
+| `blocks.delete` | Delete a block |
+| `blocks.move` | Move a block to a new position |
+| `batch_create_blocks` | Batch create multiple blocks |
+| `batch_update_blocks` | Batch update multiple blocks |
+| `batch_delete_blocks` | Batch delete multiple blocks |
 
-### 系统工具
-- **时间获取**: 获取当前真实时间，支持多种格式和时区
-- **健康检查**: 系统健康状态监控
-- **端口发现**: 自动发现思源笔记可用端口
+### Search
+| Tool | Description |
+|------|-------------|
+| `search_content` / `notes.search` | Full-text keyword search |
+| `advanced_search` | Multi-criteria search (tags, date range, block type) |
+| `quick_text_search` | Simplified text search with case/word options |
+| `search_by_tags` | Search by one or multiple tags |
+| `search_by_date_range` | Search by creation or modification date |
+| `recursive_search_notes` | Deep recursive search with fuzzy matching |
 
-### AI 智能集成
-- **智能工具选择**: AI驱动的工具推荐和选择
-- **使用场景指导**: 详细的工具使用场景和示例
-- **性能优化建议**: 基于使用模式的优化建议
-- **错误处理**: 标准化的错误处理和重试机制
+### Tags
+| Tool | Description |
+|------|-------------|
+| `get_all_tags` | List all tags with usage stats |
+| `search_tags` | Search tags by keyword |
+| `get_block_tags` | Get tags on a specific block |
+| `manage_block_tags` | Add, remove, or replace tags on a block |
 
-### 性能优化
-- **缓存机制**: 智能缓存提升响应速度
-- **批量处理**: 高效的批量数据操作
-- **性能监控**: 实时性能指标和统计
-- **并发控制**: 合理的并发请求管理
+### References & Links
+| Tool | Description |
+|------|-------------|
+| `get_block_references` | Get full reference graph for a block |
+| `get_backlinks` | Get backlinks (incoming references) |
+| `create_reference` | Create a link between two blocks |
 
-## 🚀 快速开始
+### Assets
+| Tool | Description |
+|------|-------------|
+| `assets.upload` | Upload a file to the workspace |
+| `assets.list` | List assets attached to a document |
+| `assets.unused` | Find unused asset files |
+| `assets.missing` | Find missing asset files |
+| `assets.rename` | Rename an asset |
+| `assets.ocr` | OCR text recognition on an image |
 
-### 1. 安装思源笔记
-1. 下载安装包：[https://github.com/siyuan-note/siyuan/releases](https://github.com/siyuan-note/siyuan/releases)
-2. 启动思源笔记
+### System
+| Tool | Description |
+|------|-------------|
+| `system.health` | Check SiYuan connection status |
+| `system.discover-ports` | Auto-discover the SiYuan port |
 
-### 2. 配置思源笔记
-1. 启动思源笔记
-2. 设置 → 关于 → API token
-3. 复制API Token
+---
 
-### 3. 安装 MCP Server
+## Installation
 
-#### 从 npm 安装
+### Prerequisites
+- [SiYuan Note](https://b3log.org/siyuan/en/) installed and running
+- Node.js 18+
+
+### Get your API token
+In SiYuan: **Settings → About → API token** → copy the token.
+
+### From source
 ```bash
-npm install -g siyuan-mcp-server
-```
-
-#### 从源码安装
-```bash
-git clone https://github.com/your-username/siyuan-mcp-server.git
-cd siyuan-mcp-server
+git clone https://github.com/MyrkoF/siyuan-mcp.git
+cd siyuan-mcp
 npm install
 npm run build
-npm link
 ```
 
-### 4. 配置 MCP
+---
 
-在您的 MCP 客户端配置文件中添加：
+## Configuration
+
+### Environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SIYUAN_API_TOKEN` | **Yes** | Your SiYuan API token (from Settings → About) |
+| `SIYUAN_API_URL` | No | SiYuan API base URL. If omitted, the server auto-discovers the port by scanning 6806–6808. |
+
+**Legacy aliases** (still supported): `SIYUAN_TOKEN` → `SIYUAN_API_TOKEN`, `SIYUAN_BASE_URL` → `SIYUAN_API_URL`
+
+### Claude Desktop (`claude_desktop_config.json`)
 
 ```json
 {
   "mcpServers": {
     "siyuan": {
-      "command": "npx",
-      "args": ["siyuan-mcp-server"],
+      "command": "node",
+      "args": ["/path/to/siyuan-mcp/dist/index.js"],
       "env": {
-        "SIYUAN_API_TOKEN": "your-api-token"
+        "SIYUAN_API_TOKEN": "your-token-here"
       }
     }
   }
 }
 ```
 
-**注意**: 
-- `SIYUAN_API_URL` 是可选的，如果不配置，系统会自动发现思源笔记的可用端口
-- 如果需要指定端口，可以添加 `"SIYUAN_API_URL": "http://127.0.0.1:6806"`
+If SiYuan runs on a non-default port or on a remote machine:
 
-### 5. 环境变量
-
-- `SIYUAN_API_TOKEN`: 思源笔记 API Token（必需）
-- `SIYUAN_API_URL`: 思源笔记 API 地址（可选，默认自动发现可用端口）
-
-**端口自动发现**:
-- 系统会自动扫描思源笔记的常用端口（6806, 6807, 6808）
-- 如果思源笔记正在运行，系统会自动连接到正确的端口
-- 如果自动发现失败，会尝试使用默认端口 6806
-- 如需指定端口，可手动设置 `SIYUAN_API_URL` 环境变量
-
-## 🛠️ 技术栈
-
-- **运行时**: Node.js 18+
-- **语言**: TypeScript
-- **协议**: Model Context Protocol (MCP)
-- **HTTP客户端**: Axios
-- **构建工具**: TypeScript Compiler
-
-## 📡 MCP 工具列表
-
-### 📚 笔记本操作 (Notebook)
-- `list_notebooks` - 列出所有笔记本
-- `open_notebook` - 打开笔记本
-- `close_notebook` - 关闭笔记本
-- `rename_notebook` - 重命名笔记本
-- `remove_notebook` - 删除笔记本
-
-### 📄 文档操作 (Document)
-- `create_document` - 创建新文档
-- `get_document` - 获取文档内容
-- `update_document` - 更新文档
-- `delete_document` - 删除文档
-- `list_documents` - 列出文档
-- `batch_read_all` - 批量读取所有文档
-
-### 🧱 块操作 (Block)
-- `create_block` - 创建块
-- `get_block` - 获取块
-- `update_block` - 更新块
-- `delete_block` - 删除块
-- `prepend_block` - 在块前插入
-- `append_block` - 在块后追加
-- `fold_block` - 折叠块
-- `unfold_block` - 展开块
-- `transfer_block_ref` - 转移块引用
-- `set_block_attrs` - 设置块属性
-- `get_block_attrs` - 获取块属性
-- `batch_create_blocks` - 批量创建块
-- `batch_update_blocks` - 批量更新块
-- `batch_delete_blocks` - 批量删除块
-
-### 🔍 搜索操作 (Search)
-- `simple_search` - 简单搜索
-- `recursive_search` - 递归搜索
-- `search_in_document` - 在文档中搜索
-
-### 🎨 模板操作 (Template)
-- `render_template` - 渲染模板
-- `render_sprig_template` - 渲染Sprig模板
-
-### 📤 导出操作 (Export)
-- `export_markdown` - 导出为Markdown
-- `export_file` - 导出为指定格式
-- `export_expand` - 导出为树状结构
-
-### 🖼️ 资源操作 (Assets)
-- `upload_asset` - 上传资源文件
-- `list_assets` - 列出资源文件
-- `rename_asset` - 重命名资源文件
-- `ocr_asset` - OCR识别图片
-
-### 💾 SQL查询 (SQL)
-- `query_sql` - 执行SQL查询
-
-### 📁 文件操作 (File)
-- `read_file` - 读取文件
-- `write_file` - 写入文件
-- `delete_file` - 删除文件
-- `list_files` - 列出文件
-
-### ⏰ 系统操作 (System)
-- `get_current_time` - 获取当前真实时间
-
-## 📖 使用示例
-
-### 创建文档
-```typescript
-// 创建新文档
-await toolRegistry.execute('create_document', {
-  notebook: 'notebook-id',
-  path: '/path/to/document',
-  title: '文档标题',
-  content: '文档内容'
-});
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "command": "node",
+      "args": ["/path/to/siyuan-mcp/dist/index.js"],
+      "env": {
+        "SIYUAN_API_TOKEN": "your-token-here",
+        "SIYUAN_API_URL": "http://127.0.0.1:6806"
+      }
+    }
+  }
+}
 ```
 
-### 搜索内容
-```typescript
-// 递归搜索
-await toolRegistry.execute('recursive_search', {
-  query: '关键词',
-  notebook: 'notebook-id',
-  maxDepth: 5
-});
+### Docker / remote SiYuan
+
+If SiYuan runs in Docker or on a server, point `SIYUAN_API_URL` to the host:
+
+```json
+"env": {
+  "SIYUAN_API_TOKEN": "your-token-here",
+  "SIYUAN_API_URL": "http://192.168.1.100:6806"
+}
 ```
 
-### 批量操作
-```typescript
-// 批量创建块
-await toolRegistry.execute('batch_create_blocks', {
-  requests: [
-    { content: '第一个块' },
-    { content: '第二个块' }
+### Port auto-discovery
+
+When `SIYUAN_API_URL` is not set, the server automatically scans ports 6806, 6807, and 6808 to find a running SiYuan instance. This is useful when SiYuan's port changes between restarts.
+
+---
+
+## Usage examples
+
+### List all databases
+```
+av_list_databases()
+→ Returns: [{id, name, columnCount, rowCount}, ...]
+```
+
+### Read a database
+```
+av_render_database(id: "20251215105701-op0w1p9")
+→ Returns: { name, columns: [{id, name, type}], rows: [{id, cells: {...}}] }
+```
+
+### Create a row
+```
+av_create_row(
+  avId: "20251215105701-op0w1p9",
+  name: "New project",
+  values: [
+    { keyId: "col-status-id", type: "select", content: "Active" },
+    { keyId: "col-note-id",   type: "text",   content: "Created via MCP" }
   ]
-});
+)
+→ Returns: the new row with its ID and all cell values
 ```
 
-### 获取时间
-```typescript
-// 获取当前时间
-await toolRegistry.execute('get_current_time', {
-  format: 'iso',
-  timezone: 'Asia/Shanghai'
-});
+### Update a cell
+```
+av_update_row(
+  avId:  "20251215105701-op0w1p9",
+  rowId: "20251216093012-abc1234",
+  keyId: "col-status-id",
+  value: { mSelect: [{ content: "Done" }] }
+)
 ```
 
-### 导出文档
-```typescript
-// 导出为Markdown
-await toolRegistry.execute('export_markdown', {
-  id: 'document-id'
-});
+> **Note on select columns:** SiYuan stores single-select values internally as `mSelect` (array). Always use `{ mSelect: [{ content: "Option Name" }] }` when updating select cells.
+
+### Filter rows
+```
+av_query_database(
+  avId:   "20251215105701-op0w1p9",
+  column: "Status",
+  value:  "active"
+)
+→ Returns rows where Status contains "active" (case-insensitive)
 ```
 
-## 🔧 开发
+---
 
-### 构建项目
+## Development
+
 ```bash
+# Install dependencies
+npm install
+
+# Build TypeScript → dist/
 npm run build
+
+# Type-check without building
+npx tsc --noEmit
 ```
 
-### 运行测试
-```bash
-npm test
-```
+---
 
-### 代码检查
-```bash
-npm run lint
-```
+## How to find database IDs
 
-### 类型检查
-```bash
-npm run typecheck
-```
+1. Use `av_list_databases` — it returns all database IDs and names
+2. Or open SiYuan, right-click on a database block → **Copy block ID**
 
-## 🤝 贡献指南
+Column IDs (keyIDs) are returned by `av_render_database` in the `columns` array.
 
-欢迎贡献代码、报告问题或提出改进建议！
+---
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+## Attribution
 
-## 📄 许可证
+This project is a fork of [GALIAIS/siyuan-mcp-server](https://github.com/GALIAIS/siyuan-mcp-server).
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+The original project provided the foundational MCP server structure for SiYuan (notebooks, documents, blocks, search, assets, tags). This fork adds:
 
-## 🙏 致谢
+- **Full Attribute View (database) support** — the main feature missing from all existing SiYuan MCP servers
+- Universal deployment design (no hardcoded workspace structure)
+- Auto-discovery of SiYuan port
+- Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`)
 
-感谢思源笔记团队提供优秀的笔记软件和 API 支持。
+---
 
-## 📮 联系方式
+## License
 
-- 问题反馈: [GitHub Issues](https://github.com/your-username/siyuan-mcp-server/issues)
-- 功能建议: [GitHub Discussions](https://github.com/your-username/siyuan-mcp-server/discussions)
+MIT — see [LICENSE](LICENSE)
