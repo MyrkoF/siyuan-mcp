@@ -475,29 +475,6 @@ export class MergedTools {
         }
       },
       {
-        name: 'av_get_projects',
-        description: 'Retourne tous les projets PARA depuis DB-Projects (ID: 20251215105701-op0w1p9) avec leurs colonnes Status, Progress, Area, Tasks, Resources.',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
-        }
-      },
-      {
-        name: 'av_get_tasks_by_project',
-        description: 'Retourne les tâches depuis DB-Tasks (ID: 20251214175435-gvdqlyk), optionnellement filtrées par ID de projet (relation many-to-many).',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            projectId: {
-              type: 'string',
-              description: 'ID du bloc projet pour filtrer les tâches (optionnel — si omis, retourne toutes les tâches)'
-            }
-          },
-          required: []
-        }
-      },
-      {
         name: 'av_update_row',
         description: 'Met à jour la valeur d\'une cellule dans une database Attribute View via /api/av/setAttributeViewBlockAttr.',
         inputSchema: {
@@ -663,12 +640,6 @@ export class MergedTools {
 
         case 'av_render_database':
           return await this.handleAvRenderDatabase(args.id);
-
-        case 'av_get_projects':
-          return await this.handleAvGetProjects();
-
-        case 'av_get_tasks_by_project':
-          return await this.handleAvGetTasksByProject(args.projectId);
 
         case 'av_update_row':
           return await this.handleAvUpdateRow(args.avId, args.rowId, args.keyId, args.value);
@@ -1020,31 +991,6 @@ export class MergedTools {
       );
     } catch (error: any) {
       return createStandardResponse(false, 'Erreur lors de la lecture de la database', null, error?.message);
-    }
-  }
-
-  private async handleAvGetProjects(): Promise<StandardResponse> {
-    try {
-      const db = await this.avService.getProjects();
-      return createStandardResponse(
-        true,
-        `${db.rows.length} projets trouvés dans DB-Projects`,
-        db
-      );
-    } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la lecture des projets', null, error?.message);
-    }
-  }
-
-  private async handleAvGetTasksByProject(projectId?: string): Promise<StandardResponse> {
-    try {
-      const db = await this.avService.getTasksByProject(projectId);
-      const msg = projectId
-        ? `${db.rows.length} tâches trouvées pour le projet ${projectId}`
-        : `${db.rows.length} tâches trouvées dans DB-Tasks`;
-      return createStandardResponse(true, msg, db);
-    } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la lecture des tâches', null, error?.message);
     }
   }
 

@@ -8,13 +8,10 @@
  * - Toujours identifier les colonnes par nom avec findColumn()
  * - Toujours try/catch sur renderAttributeView
  *
- * Variables d'env :
- *   SIYUAN_PROJECTS_DB_ID  → ID de la database projets (optionnel)
- *   SIYUAN_TASKS_DB_ID     → ID de la database tâches (optionnel)
  */
 
 import { SiyuanClient } from '../siyuanClient';
-import { parseCellValue, parseColumns, parseRow, findColumn } from '../utils/avParser';
+import { parseColumns, parseRow, findColumn } from '../utils/avParser';
 
 // ==================== Types publics ====================
 
@@ -50,9 +47,6 @@ export interface AVDatabaseSummary {
 
 export class AttributeViewService {
   private client: SiyuanClient;
-
-  // Cache léger pour l'auto-discovery (évite les appels répétés)
-  private _discoveryCache: Map<string, string> | null = null;
 
   constructor(client: SiyuanClient) {
     this.client = client;
@@ -129,51 +123,6 @@ export class AttributeViewService {
   }
 
   /**
-   * Retourne tous les projets depuis la database des projets.
-   * ID résolu dans l'ordre : SIYUAN_PROJECTS_DB_ID → auto-discovery "DB-Projects"
-   */
-  async getProjects(): Promise<AVDatabase> {
-    const id = await this.resolveDbId(
-      process.env.SIYUAN_PROJECTS_DB_ID,
-      'DB-Projects'
-    );
-    return this.renderDatabase(id);
-  }
-
-  /**
-   * Retourne les tâches depuis la database des tâches.
-   * ID résolu dans l'ordre : SIYUAN_TASKS_DB_ID → auto-discovery "DB-Tasks"
-   * @param projectId — Row ID du projet pour filtrer (optionnel)
-   */
-  async getTasksByProject(projectId?: string): Promise<AVDatabase> {
-    const id = await this.resolveDbId(
-      process.env.SIYUAN_TASKS_DB_ID,
-      'DB-Tasks'
-    );
-    const db = await this.renderDatabase(id);
-
-    if (!projectId) return db;
-
-    const filteredRows = db.rows.filter(row => {
-      for (const cellValue of Object.values(row.cells)) {
-        if (!cellValue || typeof cellValue !== 'object') continue;
-
-        // Relation → { ids: string[], contents: [...] }
-        if (Array.isArray(cellValue.ids) && cellValue.ids.includes(projectId)) {
-          return true;
-        }
-        // Tableau simple de strings (fallback)
-        if (Array.isArray(cellValue) && cellValue.includes(projectId)) {
-          return true;
-        }
-      }
-      return false;
-    });
-
-    return { ...db, rows: filteredRows, total: filteredRows.length };
-  }
-
-  /**
    * Met à jour la valeur d'une cellule via /api/av/setAttributeViewBlockAttr.
    */
   async updateRow(
@@ -244,48 +193,6 @@ export class AttributeViewService {
   }
 
   // ==================== Helpers privés ====================
-
-  /**
-   * Résout l'ID d'une database dans l'ordre :
-   * 1. envVarValue (si définie et non vide)
-   * 2. Auto-discovery par nom (cherche nameHint dans les databases disponibles)
-   */
-  private async resolveDbId(
-    envVarValue: string | undefined,
-    nameHint: string
-  ): Promise<string> {
-    // 1. Variable d'env explicite
-    if (envVarValue && envVarValue.trim() !== '') {
-      return envVarValue.trim();
-    }
-
-    // 2. Cache de discovery
-    if (this._discoveryCache?.has(nameHint)) {
-      return this._discoveryCache.get(nameHint)!;
-    }
-
-    // 3. Auto-discovery via listDatabases
-    const databases = await this.listDatabases();
-    const match = databases.find(db =>
-      db.name === nameHint ||
-      db.name.toLowerCase().includes(nameHint.toLowerCase())
-    );
-
-    if (!match) {
-      throw new Error(
-        `Database "${nameHint}" introuvable. ` +
-        `Définissez la variable d'environnement correspondante ou ` +
-        `vérifiez le nom de la database dans SiYuan. ` +
-        `Databases disponibles: ${databases.map(d => d.name).join(', ') || 'aucune'}`
-      );
-    }
-
-    // Mettre en cache
-    if (!this._discoveryCache) this._discoveryCache = new Map();
-    this._discoveryCache.set(nameHint, match.id);
-
-    return match.id;
-  }
 
   /**
    * Parse la réponse brute de renderAttributeView en AVDatabase normalisée.
