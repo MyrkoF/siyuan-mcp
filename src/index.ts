@@ -34,9 +34,10 @@ const server = new Server(
 );
 
 // 创建思源客户端
+// Les env vars sont résolues dans createSiyuanClient :
+//   SIYUAN_API_URL (ou SIYUAN_BASE_URL) pour l'URL
+//   SIYUAN_API_TOKEN (ou SIYUAN_TOKEN) pour le token
 const siyuanClient = createSiyuanClient({
-  baseURL: process.env.SIYUAN_BASE_URL || undefined,
-  token: process.env.SIYUAN_TOKEN || '',
   autoDiscoverPort: true
 });
 
@@ -970,6 +971,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'search_by_date_range':
       case 'recursive_search_notes':
       case 'batch_read_all_documents':
+      case 'av_list_databases':
+      case 'av_render_database':
+      case 'av_get_projects':
+      case 'av_get_tasks_by_project':
+      case 'av_update_row':
+      case 'av_query_database':
         const Result = await handleMergedTool(name, args);
         return Result; // 直接返回MCP格式的结果
 

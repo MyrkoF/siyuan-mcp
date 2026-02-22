@@ -16,7 +16,7 @@ import axios, { AxiosInstance } from 'axios';
 
 export interface SiyuanClientConfig {
   baseURL?: string;
-  token: string;
+  token?: string;  // Optionnel — fallback sur SIYUAN_API_TOKEN ou SIYUAN_TOKEN
   autoDiscoverPort?: boolean;
 }
 
@@ -74,7 +74,13 @@ export interface SiyuanClient {
 }
 
 export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
-  let { baseURL, token, autoDiscoverPort = true } = config;
+  // Résolution des env vars — priorité : argument explicite > SIYUAN_API_URL > SIYUAN_BASE_URL
+  // Token : argument > SIYUAN_API_TOKEN > SIYUAN_TOKEN (rétro-compatibilité)
+  let {
+    baseURL = process.env.SIYUAN_API_URL || process.env.SIYUAN_BASE_URL || undefined,
+    token   = process.env.SIYUAN_API_TOKEN || process.env.SIYUAN_TOKEN || '',
+    autoDiscoverPort = true
+  } = config;
   
   // 端口发现状态
   let portDiscoveryPromise: Promise<void> | null = null;
@@ -94,7 +100,7 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
    */
   const discoverPort = async (): Promise<void> => {
     if (autoDiscoverPort && (!baseURL || baseURL === '' || baseURL === undefined)) {
-      const portDiscovery = createPortDiscovery(config.token);
+      const portDiscovery = createPortDiscovery(token ?? '');
       
       try {
         const result = await portDiscovery.autoDiscover();

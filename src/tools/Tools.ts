@@ -11,14 +11,13 @@ import { createSiyuanClient } from '../siyuanClient/index';
 import type { SiyuanClient } from '../siyuanClient/index';
 import { BatchService } from '../services/batch-service';
 import { TagService } from '../services/tag-service';
+import { AttributeViewService } from '../services/av-service';
 
 import { ReferenceService } from '../services/reference-service';
 import { AdvancedSearchService } from '../services/advanced-search-service';
 
-// 创建客户端实例
+// 创建客户端实例 — env vars résolues dans createSiyuanClient()
 const siyuanClient = createSiyuanClient({
-  baseURL: process.env.SIYUAN_API_URL || undefined,
-  token: process.env.SIYUAN_TOKEN || '',
   autoDiscoverPort: true
 });
 
@@ -63,6 +62,7 @@ export class MergedTools {
   private client: SiyuanClient;
   private batchService: BatchService;
   private tagService: TagService;
+  private avService: AttributeViewService;
 
   private referenceService: ReferenceService;
   private searchService: AdvancedSearchService;
@@ -71,6 +71,7 @@ export class MergedTools {
     this.client = client;
     this.batchService = new BatchService(client);
     this.tagService = new TagService(client);
+    this.avService = new AttributeViewService(client);
 
     this.referenceService = new ReferenceService(client);
     this.searchService = new AdvancedSearchService(client);
@@ -442,6 +443,106 @@ export class MergedTools {
           },
           required: ['notebookId']
         }
+      },
+
+      // ==================== Attribute View (Database) Tools ====================
+      {
+        name: 'av_list_databases',
+        description: 'Liste toutes les databases SiYuan Attribute Views disponibles avec nom, nombre de colonnes et de lignes.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            nameFilter: {
+              type: 'string',
+              description: 'Filtre par préfixe de nom, insensible à la casse (ex: "DB-" pour ne voir que les databases nommées DB-*)'
+            }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'av_render_database',
+        description: 'Lit une database SiYuan Attribute View complète (colonnes + lignes). Utilise /api/av/renderAttributeView.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'ID de la database (Attribute View block ID), ex: 20251215105701-op0w1p9'
+            }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'av_get_projects',
+        description: 'Retourne tous les projets PARA depuis DB-Projects (ID: 20251215105701-op0w1p9) avec leurs colonnes Status, Progress, Area, Tasks, Resources.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        }
+      },
+      {
+        name: 'av_get_tasks_by_project',
+        description: 'Retourne les tâches depuis DB-Tasks (ID: 20251214175435-gvdqlyk), optionnellement filtrées par ID de projet (relation many-to-many).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: {
+              type: 'string',
+              description: 'ID du bloc projet pour filtrer les tâches (optionnel — si omis, retourne toutes les tâches)'
+            }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'av_update_row',
+        description: 'Met à jour la valeur d\'une cellule dans une database Attribute View via /api/av/setAttributeViewBlockAttr.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: {
+              type: 'string',
+              description: 'ID de la database (Attribute View ID)'
+            },
+            rowId: {
+              type: 'string',
+              description: 'ID de la ligne (block ID de la ligne)'
+            },
+            keyId: {
+              type: 'string',
+              description: 'ID de la colonne (key ID)'
+            },
+            value: {
+              description: 'Nouvelle valeur au format SiYuan AV (ex: { "text": { "content": "hello" } } ou { "number": { "content": 42 } } ou { "select": { "content": "Active" } })'
+            }
+          },
+          required: ['avId', 'rowId', 'keyId', 'value']
+        }
+      },
+      {
+        name: 'av_query_database',
+        description: 'Filtre les entrées d\'une database Attribute View par colonne et valeur (recherche partielle insensible à la casse).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: {
+              type: 'string',
+              description: 'ID de la database (Attribute View block ID)'
+            },
+            column: {
+              type: 'string',
+              description: 'Nom ou ID de la colonne à filtrer (ex: "Status", "Area")'
+            },
+            value: {
+              type: 'string',
+              description: 'Valeur à rechercher (recherche partielle, insensible à la casse)'
+            }
+          },
+          required: ['avId', 'column', 'value']
+        }
       }
     ];
   }
@@ -555,6 +656,25 @@ export class MergedTools {
 
         case 'batch_read_all_documents':
           return await this.client.batchReadAllDocuments(args.notebookId, args.options);
+
+        // ==================== Attribute View (Database) ====================
+        case 'av_list_databases':
+          return await this.handleAvListDatabases(args.nameFilter);
+
+        case 'av_render_database':
+          return await this.handleAvRenderDatabase(args.id);
+
+        case 'av_get_projects':
+          return await this.handleAvGetProjects();
+
+        case 'av_get_tasks_by_project':
+          return await this.handleAvGetTasksByProject(args.projectId);
+
+        case 'av_update_row':
+          return await this.handleAvUpdateRow(args.avId, args.rowId, args.keyId, args.value);
+
+        case 'av_query_database':
+          return await this.handleAvQueryDatabase(args.avId, args.column, args.value);
 
         default:
           throw new Error(`未知的工具: ${toolName}`);
@@ -868,6 +988,97 @@ export class MergedTools {
         { title, notebook, parentPath },
         error?.message || '未知错误'
       );
+    }
+  }
+
+  // ==================== Attribute View implementations ====================
+
+  private async handleAvListDatabases(nameFilter?: string): Promise<StandardResponse> {
+    try {
+      const databases = await this.avService.listDatabases(nameFilter);
+      const filterMsg = nameFilter ? ` (filtre: "${nameFilter}")` : '';
+      return createStandardResponse(
+        true,
+        `${databases.length} database(s) trouvée(s)${filterMsg}`,
+        { databases, total: databases.length }
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors du listage des databases', null, error?.message);
+    }
+  }
+
+  private async handleAvRenderDatabase(id: string): Promise<StandardResponse> {
+    try {
+      if (!id) {
+        return createStandardResponse(false, 'ID de database requis', null, 'Paramètre id manquant');
+      }
+      const db = await this.avService.renderDatabase(id);
+      return createStandardResponse(
+        true,
+        `Database "${db.name}" lue: ${db.rows.length} lignes, ${db.columns.length} colonnes`,
+        db
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la lecture de la database', null, error?.message);
+    }
+  }
+
+  private async handleAvGetProjects(): Promise<StandardResponse> {
+    try {
+      const db = await this.avService.getProjects();
+      return createStandardResponse(
+        true,
+        `${db.rows.length} projets trouvés dans DB-Projects`,
+        db
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la lecture des projets', null, error?.message);
+    }
+  }
+
+  private async handleAvGetTasksByProject(projectId?: string): Promise<StandardResponse> {
+    try {
+      const db = await this.avService.getTasksByProject(projectId);
+      const msg = projectId
+        ? `${db.rows.length} tâches trouvées pour le projet ${projectId}`
+        : `${db.rows.length} tâches trouvées dans DB-Tasks`;
+      return createStandardResponse(true, msg, db);
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la lecture des tâches', null, error?.message);
+    }
+  }
+
+  private async handleAvUpdateRow(avId: string, rowId: string, keyId: string, value: any): Promise<StandardResponse> {
+    try {
+      if (!avId || !rowId || !keyId) {
+        return createStandardResponse(
+          false, 'Paramètres manquants', null,
+          'avId, rowId et keyId sont tous requis'
+        );
+      }
+      const result = await this.avService.updateRow(avId, rowId, keyId, value);
+      return createStandardResponse(true, 'Cellule mise à jour avec succès', result ?? { avId, rowId, keyId });
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la mise à jour', null, error?.message);
+    }
+  }
+
+  private async handleAvQueryDatabase(avId: string, column: string, value: string): Promise<StandardResponse> {
+    try {
+      if (!avId || !column || value === undefined) {
+        return createStandardResponse(
+          false, 'Paramètres manquants', null,
+          'avId, column et value sont requis'
+        );
+      }
+      const db = await this.avService.queryDatabase(avId, column, String(value));
+      return createStandardResponse(
+        true,
+        `${db.rows.length} entrée(s) trouvée(s) pour "${column}" = "${value}"`,
+        db
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la requête', null, error?.message);
     }
   }
 }
