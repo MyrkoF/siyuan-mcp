@@ -973,6 +973,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'batch_read_all_documents':
       case 'av_list_databases':
       case 'av_render_database':
+      case 'av_create_row':
       case 'av_update_row':
       case 'av_query_database':
         const Result = await handleMergedTool(name, args);

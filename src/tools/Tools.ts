@@ -500,6 +500,43 @@ export class MergedTools {
         }
       },
       {
+        name: 'av_create_row',
+        description: 'Crée une nouvelle ligne (détachée) dans une database Attribute View. Retourne la ligne créée avec son ID et ses cellules.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: {
+              type: 'string',
+              description: 'ID de la database (Attribute View block ID)'
+            },
+            name: {
+              type: 'string',
+              description: 'Nom/titre de la nouvelle ligne (contenu de la colonne primaire "block"). Vide si omis.'
+            },
+            values: {
+              type: 'array',
+              description: 'Valeurs initiales optionnelles pour les autres colonnes',
+              items: {
+                type: 'object',
+                properties: {
+                  keyId: { type: 'string', description: 'ID de la colonne (keyID, obtenu via av_render_database)' },
+                  type: {
+                    type: 'string',
+                    enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'],
+                    description: 'Type de la colonne'
+                  },
+                  content: {
+                    description: 'Valeur selon le type : string pour text/select/url/email/phone, number pour number/date (timestamp ms), boolean pour checkbox, string[] pour mSelect'
+                  }
+                },
+                required: ['keyId', 'type', 'content']
+              }
+            }
+          },
+          required: ['avId']
+        }
+      },
+      {
         name: 'av_query_database',
         description: 'Filtre les entrées d\'une database Attribute View par colonne et valeur (recherche partielle insensible à la casse).',
         inputSchema: {
@@ -640,6 +677,9 @@ export class MergedTools {
 
         case 'av_render_database':
           return await this.handleAvRenderDatabase(args.id);
+
+        case 'av_create_row':
+          return await this.handleAvCreateRow(args.avId, args.name, args.values);
 
         case 'av_update_row':
           return await this.handleAvUpdateRow(args.avId, args.rowId, args.keyId, args.value);
@@ -991,6 +1031,30 @@ export class MergedTools {
       );
     } catch (error: any) {
       return createStandardResponse(false, 'Erreur lors de la lecture de la database', null, error?.message);
+    }
+  }
+
+  private async handleAvCreateRow(avId: string, name?: string, values?: any[]): Promise<StandardResponse> {
+    try {
+      if (!avId) {
+        return createStandardResponse(false, 'Paramètre manquant', null, 'avId est requis');
+      }
+      const newRow = await this.avService.createRow(avId, name ?? '', values ?? []);
+      if (!newRow) {
+        return createStandardResponse(
+          false,
+          'Ligne créée mais introuvable dans le diff post-render',
+          null,
+          'La ligne a peut-être été créée mais son ID ne peut pas être déterminé'
+        );
+      }
+      return createStandardResponse(
+        true,
+        `Ligne créée avec succès (ID: ${newRow.id})`,
+        newRow
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la création de la ligne', null, error?.message);
     }
   }
 

@@ -43,6 +43,16 @@ export interface AVDatabaseSummary {
   rowCount: number;
 }
 
+/**
+ * Valeur initiale pour av_create_row.
+ * content : string | number | boolean | string[] selon le type.
+ */
+export interface AVCreateRowValue {
+  keyId: string;
+  type: string;
+  content: any;
+}
+
 // ==================== Service ====================
 
 export class AttributeViewService {
@@ -150,6 +160,93 @@ export class AttributeViewService {
   }
 
   /**
+   * Crée une nouvelle ligne (détachée) dans la database via
+   * /api/av/appendAttributeViewDetachedBlocksWithValues.
+   *
+   * La colonne de type "block" (colonne primaire) est toujours requise par l'API.
+   * Elle est ajoutée automatiquement avec `name` comme contenu.
+   *
+   * L'API ne retourne pas l'ID de la ligne créée → on diff avant/après
+   * renderDatabase pour récupérer la nouvelle AVRow.
+   *
+   * @param avId   — Block ID de la database
+   * @param name   — Contenu de la colonne primaire "block" (nom/titre de la ligne)
+   * @param values — Valeurs initiales optionnelles des autres colonnes
+   * @returns La nouvelle AVRow avec son ID, ou null si introuvable dans le diff
+   */
+  async createRow(
+    avId: string,
+    name: string = '',
+    values: AVCreateRowValue[] = []
+  ): Promise<AVRow | null> {
+    if (!avId || avId.trim() === '') {
+      throw new Error('avId est requis');
+    }
+
+    // Snapshot des IDs actuels + récupération de la colonne block primaire
+    const before = await this.renderDatabase(avId);
+    const beforeIds = new Set(before.rows.map(r => r.id));
+
+    const blockCol = before.columns.find(c => c.type === 'block');
+    if (!blockCol) {
+      throw new Error('Colonne primaire de type "block" introuvable dans cette database');
+    }
+
+    // Colonne block en premier (obligatoire pour l'API)
+    const blockEntry: any = {
+      keyID: blockCol.id,
+      type: 'block',
+      isDetached: true,
+      block: { content: name, id: '' }
+    };
+
+    // Autres valeurs fournies par l'utilisateur (sans doublon sur la colonne block)
+    const otherValues = values
+      .filter(v => v.keyId !== blockCol.id)
+      .map(v => this.buildBlockValue(v));
+
+    const response = await this.client.request(
+      '/api/av/appendAttributeViewDetachedBlocksWithValues',
+      {
+        avID: avId.trim(),
+        blocksValues: [[blockEntry, ...otherValues]]   // 2D array : une seule ligne
+      }
+    );
+
+    if (!response || response.code !== 0) {
+      throw new Error(
+        `Création de ligne échouée: ${response?.msg ?? 'erreur inconnue'}`
+      );
+    }
+
+    // Re-render pour trouver la nouvelle ligne par diff
+    const after = await this.renderDatabase(avId);
+    const newRow = after.rows.find(r => !beforeIds.has(r.id));
+
+    if (!newRow) return null;
+
+    // Pour les types select/mSelect, setAttributeViewBlockAttr est plus fiable
+    // que blocksValues (qui ne crée pas les options à la volée).
+    // On rappelle updateRow pour chaque valeur non-block fournie.
+    if (values.length > 0) {
+      for (const v of values.filter(v => v.keyId !== blockCol.id)) {
+        try {
+          // buildUpdateValue génère le format attendu par setAttributeViewBlockAttr
+          // (différent de buildBlockValue qui est pour appendAttributeViewDetachedBlocksWithValues)
+          await this.updateRow(avId, newRow.id, v.keyId, this.buildUpdateValue(v));
+        } catch {
+          // Ignorer silencieusement — la ligne est créée, les valeurs sont best-effort
+        }
+      }
+      // Re-render final pour retourner les vraies valeurs persistées
+      const final = await this.renderDatabase(avId);
+      return final.rows.find(r => r.id === newRow.id) ?? newRow;
+    }
+
+    return newRow;
+  }
+
+  /**
    * Filtre les entrées d'une database par colonne/valeur (recherche partielle,
    * insensible à la casse).
    */
@@ -193,6 +290,80 @@ export class AttributeViewService {
   }
 
   // ==================== Helpers privés ====================
+
+  /**
+   * Convertit un AVCreateRowValue au format attendu par setAttributeViewBlockAttr.
+   * Différent de buildBlockValue : retourne uniquement la partie typée {text: {...}},
+   * sans keyID/type/isDetached qui sont passés séparément dans la requête.
+   */
+  private buildUpdateValue(v: AVCreateRowValue): any {
+    switch (v.type) {
+      case 'text':
+      case 'url':
+      case 'email':
+      case 'phone':
+      case 'template':
+        return { [v.type]: { content: String(v.content ?? '') } };
+      case 'number':
+        return { number: { content: Number(v.content), isNotEmpty: true } };
+      case 'checkbox':
+        return { checkbox: { checked: Boolean(v.content) } };
+      case 'select':
+        // SiYuan stocke select en mSelect (tableau) même pour single-select
+        return { mSelect: [{ content: String(v.content ?? '') }] };
+      case 'mSelect': {
+        const items = Array.isArray(v.content) ? v.content : [v.content];
+        return { mSelect: items.map((c: any) => ({ content: String(c) })) };
+      }
+      case 'date':
+        return { date: { content: Number(v.content), isNotEmpty: true } };
+      default:
+        return { [v.type]: { content: v.content } };
+    }
+  }
+
+  /**
+   * Convertit un AVCreateRowValue en objet Value SiYuan pour blocksValues.
+   */
+  private buildBlockValue(v: AVCreateRowValue): any {
+    const base: any = {
+      keyID: v.keyId,
+      type: v.type,
+      isDetached: true
+    };
+
+    switch (v.type) {
+      case 'text':
+      case 'url':
+      case 'email':
+      case 'phone':
+      case 'template':
+        base[v.type] = { content: String(v.content ?? '') };
+        break;
+      case 'number':
+        base.number = { content: Number(v.content), isNotEmpty: true };
+        break;
+      case 'checkbox':
+        base.checkbox = { checked: Boolean(v.content) };
+        break;
+      case 'select':
+        base.select = { content: String(v.content ?? '') };
+        break;
+      case 'mSelect': {
+        const items = Array.isArray(v.content) ? v.content : [v.content];
+        base.mSelect = items.map((c: any) => ({ content: String(c) }));
+        break;
+      }
+      case 'date':
+        // content = timestamp en ms (number) ou string ISO
+        base.date = { content: Number(v.content), isNotEmpty: true };
+        break;
+      default:
+        base[v.type] = { content: v.content };
+    }
+
+    return base;
+  }
 
   /**
    * Parse la réponse brute de renderAttributeView en AVDatabase normalisée.
