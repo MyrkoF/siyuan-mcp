@@ -483,13 +483,17 @@ export class MergedTools {
       },
       {
         name: 'doc_delete',
-        description: 'Supprime (envoie dans la corbeille) un document SiYuan par son ID. Opération irréversible — demander confirmation avant d\'appeler.',
+        description: 'Supprime (envoie dans la corbeille SiYuan) un document par son ID. Par défaut REFUSE si le document a des enfants et retourne leur liste. Passer cascade:true pour supprimer récursivement. Tout va en corbeille (récupérable).',
         inputSchema: {
           type: 'object',
           properties: {
             id: {
               type: 'string',
               description: 'Block ID du document à supprimer'
+            },
+            cascade: {
+              type: 'boolean',
+              description: 'false (défaut) : refus si des enfants existent, retourne leur liste. true : supprime tous les enfants depth-first puis le parent. Tout va en corbeille SiYuan.'
             }
           },
           required: ['id']
@@ -782,7 +786,7 @@ export class MergedTools {
           return await this.handleDocRename(args.id, args.title);
 
         case 'doc_delete':
-          return await this.handleDocDelete(args.id);
+          return await this.handleDocDelete(args.id, args.cascade ?? false);
 
         case 'doc_move':
           return await this.handleDocMove(args.fromIds, args.toId);
@@ -1147,15 +1151,18 @@ export class MergedTools {
     }
   }
 
-  private async handleDocDelete(id: string): Promise<StandardResponse> {
+  private async handleDocDelete(id: string, cascade: boolean): Promise<StandardResponse> {
     try {
       if (!id?.trim()) {
         return createStandardResponse(false, 'Paramètre manquant', null, 'id est requis');
       }
-      await this.docService.deleteDocument(id);
-      return createStandardResponse(true, `Document ${id} supprimé`, { id });
+      const result = await this.docService.deleteDocument(id, cascade);
+      const msg = result.childCount > 0
+        ? `Document supprimé avec ${result.childCount} enfant(s) (corbeille SiYuan)`
+        : 'Document supprimé (corbeille SiYuan)';
+      return createStandardResponse(true, msg, result);
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la suppression', null, error?.message);
+      return createStandardResponse(false, 'Suppression refusée ou échouée', null, error?.message);
     }
   }
 
