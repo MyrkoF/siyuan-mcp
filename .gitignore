@@ -70,18 +70,21 @@ PUBLISH_GUIDE.md
 # CodeBuddy files
 .codebuddy/
 
-# 备份文件
+# npm local auth token — never commit
+.npmrc
+
+# Backup
 *.backup
 *.bak
 *.old
 
-# 接口文件备份
+# Interface
 src/interfaces/enhanced-siyuan-types.ts.backup
 
-# 工具文件备份
+# bak
 bak/
 
-# 测试和临时文件
+# tools
 organize-tools.js
 
 #other
