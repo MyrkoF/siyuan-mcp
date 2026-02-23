@@ -495,27 +495,40 @@ export class MergedTools {
       },
       {
         name: 'av_update_row',
-        description: 'Met à jour la valeur d\'une cellule dans une database Attribute View via /api/av/setAttributeViewBlockAttr.',
+        description: 'Met à jour une ou plusieurs cellules d\'une ligne dans une database Attribute View en un seul appel (/api/av/batchSetAttributeViewBlockAttrs). Utiliser av_render_database pour obtenir les keyIds des colonnes.',
         inputSchema: {
           type: 'object',
           properties: {
             avId: {
               type: 'string',
-              description: 'ID de la database (Attribute View ID)'
+              description: 'ID de la database (Attribute View block ID)'
             },
             rowId: {
               type: 'string',
-              description: 'ID de la ligne (block ID de la ligne)'
+              description: 'ID de la ligne à modifier (obtenu via av_render_database ou av_query_database)'
             },
-            keyId: {
-              type: 'string',
-              description: 'ID de la colonne (key ID)'
-            },
-            value: {
-              description: 'Nouvelle valeur au format SiYuan AV (ex: { "text": { "content": "hello" } } ou { "number": { "content": 42 } } ou { "select": { "content": "Active" } })'
+            updates: {
+              type: 'array',
+              description: 'Liste des cellules à mettre à jour (une ou plusieurs)',
+              items: {
+                type: 'object',
+                properties: {
+                  keyId: { type: 'string', description: 'ID de la colonne (keyID, obtenu via av_render_database)' },
+                  type: {
+                    type: 'string',
+                    enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'],
+                    description: 'Type de la colonne'
+                  },
+                  content: {
+                    description: 'Nouvelle valeur : string pour text/select/url/email/phone, number pour number/date (timestamp ms), boolean pour checkbox, string[] pour mSelect'
+                  }
+                },
+                required: ['keyId', 'type', 'content']
+              },
+              minItems: 1
             }
           },
-          required: ['avId', 'rowId', 'keyId', 'value']
+          required: ['avId', 'rowId', 'updates']
         }
       },
       {
@@ -704,7 +717,7 @@ export class MergedTools {
           return await this.handleAvDeleteRow(args.avId, args.rowIds);
 
         case 'av_update_row':
-          return await this.handleAvUpdateRow(args.avId, args.rowId, args.keyId, args.value);
+          return await this.handleAvUpdateRow(args.avId, args.rowId, args.updates);
 
         case 'av_query_database':
           return await this.handleAvQueryDatabase(args.avId, args.column, args.value);
@@ -1099,16 +1112,20 @@ export class MergedTools {
     }
   }
 
-  private async handleAvUpdateRow(avId: string, rowId: string, keyId: string, value: any): Promise<StandardResponse> {
+  private async handleAvUpdateRow(avId: string, rowId: string, updates: any[]): Promise<StandardResponse> {
     try {
-      if (!avId || !rowId || !keyId) {
-        return createStandardResponse(
-          false, 'Paramètres manquants', null,
-          'avId, rowId et keyId sont tous requis'
-        );
+      if (!avId || !rowId) {
+        return createStandardResponse(false, 'Paramètres manquants', null, 'avId et rowId sont requis');
       }
-      const result = await this.avService.updateRow(avId, rowId, keyId, value);
-      return createStandardResponse(true, 'Cellule mise à jour avec succès', result ?? { avId, rowId, keyId });
+      if (!updates || updates.length === 0) {
+        return createStandardResponse(false, 'Paramètres manquants', null, 'updates doit contenir au moins une cellule');
+      }
+      await this.avService.batchUpdateRow(avId, rowId, updates);
+      return createStandardResponse(
+        true,
+        `${updates.length} cellule(s) mise(s) à jour`,
+        { avId, rowId, updatedKeys: updates.map((u: any) => u.keyId) }
+      );
     } catch (error: any) {
       return createStandardResponse(false, 'Erreur lors de la mise à jour', null, error?.message);
     }

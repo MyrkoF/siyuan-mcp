@@ -160,7 +160,44 @@ export class AttributeViewService {
   }
 
   /**
+   * Met à jour plusieurs cellules d'une ligne en un seul appel via
+   * /api/av/batchSetAttributeViewBlockAttrs.
+   *
+   * @param avId    — Block ID de la database
+   * @param rowId   — ID de la ligne à modifier
+   * @param updates — Tableau de valeurs à appliquer ({keyId, type, content})
+   */
+  async batchUpdateRow(
+    avId: string,
+    rowId: string,
+    updates: AVCreateRowValue[]
+  ): Promise<void> {
+    if (!avId || !rowId) {
+      throw new Error('avId et rowId sont requis');
+    }
+    if (!updates || updates.length === 0) {
+      throw new Error('Au moins une mise à jour est requise');
+    }
+
+    const values = updates.map(u => ({
+      keyID: u.keyId,
+      rowID: rowId,
+      value: this.buildUpdateValue(u)
+    }));
+
+    const response = await this.client.request('/api/av/batchSetAttributeViewBlockAttrs', {
+      avID: avId,
+      values
+    });
+
+    if (!response || response.code !== 0) {
+      throw new Error(`Batch update échoué: ${response?.msg ?? 'erreur inconnue'}`);
+    }
+  }
+
+  /**
    * Met à jour la valeur d'une cellule via /api/av/setAttributeViewBlockAttr.
+   * Utilisé en interne (createRow) pour les cas où batchUpdate n'est pas adapté.
    */
   async updateRow(
     avId: string,
