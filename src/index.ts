@@ -101,7 +101,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'blocks_delete',
-        description: 'Delete a block by ID',
+        description: 'Delete a content block (paragraph, heading, list item, code block, etc.) by ID. Do NOT use for documents — use doc_delete instead.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -374,8 +374,472 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['name', 'variables']
         }
       },
-      // 合并后的所有工具
-      ...getAllMergedTools(),
+      // ==================== Legacy / Standard tools (from Tools.ts handlers) ====================
+      {
+        name: 'list_notebooks',
+        description: 'List all SiYuan notebooks',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        name: 'search_content',
+        description: 'Full-text keyword search across SiYuan notes',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search keyword' },
+            limit: { type: 'number', description: 'Maximum number of results', default: 10 }
+          },
+          required: ['query']
+        }
+      },
+      {
+        name: 'create_notebook',
+        description: 'Create a new SiYuan notebook',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Notebook name' },
+            icon: { type: 'string', description: 'Notebook icon', default: '📔' }
+          },
+          required: ['name']
+        }
+      },
+      {
+        name: 'create_subdocument',
+        description: 'Create a child document under a parent document',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            notebook: { type: 'string', description: 'Notebook ID' },
+            parentPath: { type: 'string', description: 'Parent document path' },
+            title: { type: 'string', description: 'Child document title' },
+            content: { type: 'string', description: 'Child document content (Markdown)', default: '' }
+          },
+          required: ['notebook', 'parentPath', 'title']
+        }
+      },
+      {
+        name: 'batch_create_blocks',
+        description: 'Batch create multiple content blocks',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            requests: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  content: { type: 'string', description: 'Block content (Markdown)' },
+                  parentID: { type: 'string', description: 'Parent block ID (optional)' },
+                  previousID: { type: 'string', description: 'Previous sibling block ID (optional)' }
+                },
+                required: ['content']
+              },
+              description: 'List of batch create requests'
+            }
+          },
+          required: ['requests']
+        }
+      },
+      {
+        name: 'batch_update_blocks',
+        description: 'Batch update multiple content blocks',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            requests: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', description: 'Block ID' },
+                  content: { type: 'string', description: 'New content (Markdown)' }
+                },
+                required: ['id', 'content']
+              },
+              description: 'List of batch update requests'
+            }
+          },
+          required: ['requests']
+        }
+      },
+      {
+        name: 'batch_delete_blocks',
+        description: 'Batch delete multiple content blocks (paragraphs, headings, etc.). Do NOT use for documents — use doc_delete instead.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            blockIds: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of block IDs to delete'
+            }
+          },
+          required: ['blockIds']
+        }
+      },
+      {
+        name: 'get_all_tags',
+        description: 'Get all tags with usage statistics',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sortBy: { type: 'string', enum: ['name', 'count', 'created'], description: 'Sort field', default: 'count' },
+            sortOrder: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order', default: 'desc' }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'search_tags',
+        description: 'Search tags by keyword',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            keyword: { type: 'string', description: 'Search keyword' },
+            limit: { type: 'number', description: 'Maximum number of results', default: 20 }
+          },
+          required: ['keyword']
+        }
+      },
+      {
+        name: 'manage_block_tags',
+        description: 'Add, remove, or replace tags on a block',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            blockId: { type: 'string', description: 'Block ID' },
+            operation: { type: 'string', enum: ['add', 'remove', 'replace'], description: 'Operation: "add", "remove", or "replace"' },
+            tags: { type: 'array', items: { type: 'string' }, description: 'List of tags' }
+          },
+          required: ['blockId', 'operation', 'tags']
+        }
+      },
+      {
+        name: 'get_block_tags',
+        description: 'Get all tags attached to a specific block',
+        inputSchema: {
+          type: 'object',
+          properties: { blockId: { type: 'string', description: 'Block ID' } },
+          required: ['blockId']
+        }
+      },
+      {
+        name: 'get_block_references',
+        description: 'Get the full reference graph for a block',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            blockId: { type: 'string', description: 'Block ID' },
+            includeBacklinks: { type: 'boolean', description: 'Include backlinks', default: true },
+            maxDepth: { type: 'number', description: 'Maximum depth', default: 3 }
+          },
+          required: ['blockId']
+        }
+      },
+      {
+        name: 'get_backlinks',
+        description: 'Get backlinks (incoming references) for a block',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            blockId: { type: 'string', description: 'Block ID' },
+            includeContent: { type: 'boolean', description: 'Include content', default: true }
+          },
+          required: ['blockId']
+        }
+      },
+      {
+        name: 'create_reference',
+        description: 'Create a reference link between two blocks',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sourceBlockId: { type: 'string', description: 'Source block ID' },
+            targetBlockId: { type: 'string', description: 'Target block ID' },
+            referenceType: { type: 'string', enum: ['link', 'embed', 'mention'], description: 'Reference type', default: 'link' }
+          },
+          required: ['sourceBlockId', 'targetBlockId']
+        }
+      },
+      {
+        name: 'advanced_search',
+        description: 'Advanced multi-criteria search (tags, date range, block type)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query' },
+            notebook: { type: 'string', description: 'Notebook ID (optional)' },
+            tags: { type: 'array', items: { type: 'string' }, description: 'Tag filter (optional)' },
+            dateRange: {
+              type: 'object',
+              properties: {
+                start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+              },
+              description: 'Date range filter (optional)'
+            },
+            blockType: { type: 'string', enum: ['paragraph', 'heading', 'list', 'code', 'table'], description: 'Block type filter (optional)' },
+            limit: { type: 'number', description: 'Maximum number of results', default: 50 }
+          },
+          required: ['query']
+        }
+      },
+      {
+        name: 'quick_text_search',
+        description: 'Quick text search with case-sensitivity and whole-word options',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            text: { type: 'string', description: 'Text to search for' },
+            caseSensitive: { type: 'boolean', description: 'Case-sensitive search', default: false },
+            wholeWord: { type: 'boolean', description: 'Whole-word match', default: false },
+            limit: { type: 'number', description: 'Maximum number of results', default: 20 }
+          },
+          required: ['text']
+        }
+      },
+      {
+        name: 'search_by_tags',
+        description: 'Search content by one or multiple tags',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            tags: { type: 'array', items: { type: 'string' }, description: 'List of tags' },
+            matchMode: { type: 'string', enum: ['any', 'all'], description: 'Match mode: "any" or "all"', default: 'any' },
+            limit: { type: 'number', description: 'Maximum number of results', default: 30 }
+          },
+          required: ['tags']
+        }
+      },
+      {
+        name: 'search_by_date_range',
+        description: 'Search content by creation or modification date range',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            startDate: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+            endDate: { type: 'string', description: 'End date (YYYY-MM-DD)' },
+            dateType: { type: 'string', enum: ['created', 'updated'], description: 'Date type: "created" or "updated"', default: 'updated' },
+            limit: { type: 'number', description: 'Maximum number of results', default: 50 }
+          },
+          required: ['startDate', 'endDate']
+        }
+      },
+      {
+        name: 'recursive_search_notes',
+        description: 'Deep recursive search with optional fuzzy matching',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query' },
+            notebook: { type: 'string', description: 'Notebook ID (optional)' },
+            options: {
+              type: 'object',
+              properties: {
+                maxDepth: { type: 'number', description: 'Maximum search depth', default: 3 },
+                includeContent: { type: 'boolean', description: 'Include content', default: true },
+                fuzzyMatch: { type: 'boolean', description: 'Enable fuzzy matching', default: false },
+                limit: { type: 'number', description: 'Maximum number of results', default: 50 }
+              },
+              description: 'Search options (optional)'
+            }
+          },
+          required: ['query']
+        }
+      },
+      {
+        name: 'batch_read_all_documents',
+        description: 'Batch-read all documents in a notebook',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            notebookId: { type: 'string', description: 'Notebook ID' },
+            options: {
+              type: 'object',
+              properties: {
+                maxDepth: { type: 'number', description: 'Maximum read depth', default: 2 },
+                includeContent: { type: 'boolean', description: 'Include document content', default: false },
+                batchSize: { type: 'number', description: 'Batch size', default: 10 },
+                delay: { type: 'number', description: 'Delay between batches (ms)', default: 100 }
+              },
+              description: 'Read options (optional)'
+            }
+          },
+          required: ['notebookId']
+        }
+      },
+      // ==================== Document CRUD ====================
+      {
+        name: 'doc_get',
+        description: 'Read a SiYuan document Markdown content and path by ID.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Document block ID (root ID). Get via list_notebooks, search_content, etc.' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'doc_rename',
+        description: 'Rename a SiYuan document by ID.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Document block ID to rename' },
+            title: { type: 'string', description: 'New document title' }
+          },
+          required: ['id', 'title']
+        }
+      },
+      {
+        name: 'doc_delete',
+        description: 'Delete a document (sends to SiYuan trash, recoverable). Refuses if children exist unless cascade:true.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Document block ID to delete' },
+            cascade: { type: 'boolean', description: 'false (default): refuse if children exist. true: delete all children depth-first then parent.' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'doc_move',
+        description: 'Move one or more SiYuan documents to a new parent (document or notebook).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            fromIds: { type: 'array', items: { type: 'string' }, description: 'IDs of documents to move (at least 1)', minItems: 1 },
+            toId: { type: 'string', description: 'Target parent document ID or target notebook ID' }
+          },
+          required: ['fromIds', 'toId']
+        }
+      },
+      // ==================== Attribute View (Database) Tools ====================
+      {
+        name: 'av_list_databases',
+        description: 'List all Attribute View databases in the workspace (name, column count, row count).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            nameFilter: { type: 'string', description: 'Optional name prefix filter, case-insensitive (e.g. "DB-")' }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'av_render_database',
+        description: 'Read a full Attribute View database: all columns (with types) and all rows (with parsed values).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Database ID (Attribute View block ID), e.g. 20251215105701-op0w1p9' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'av_delete_row',
+        description: 'Delete one or more rows from an Attribute View database. Irreversible.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            rowIds: { type: 'array', items: { type: 'string' }, description: 'Row IDs to delete (at least 1). Get IDs from av_render_database.' }
+          },
+          required: ['avId', 'rowIds']
+        }
+      },
+      {
+        name: 'av_update_row',
+        description: 'Update one or more cells in a row in an Attribute View database (batch). Use av_render_database first to get keyIds.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            rowId: { type: 'string', description: 'Row ID to update (from av_render_database or av_query_database)' },
+            updates: {
+              type: 'array',
+              description: 'List of cells to update (one or more)',
+              items: {
+                type: 'object',
+                properties: {
+                  keyId: { type: 'string', description: 'Column ID (keyID, from av_render_database)' },
+                  type: { type: 'string', enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'], description: 'Column type' },
+                  content: { description: 'New value: string for text/select/url/email/phone, number for number/date (timestamp ms), boolean for checkbox, string[] for mSelect' }
+                },
+                required: ['keyId', 'type', 'content']
+              },
+              minItems: 1
+            }
+          },
+          required: ['avId', 'rowId', 'updates']
+        }
+      },
+      {
+        name: 'av_create_row',
+        description: 'Create a new detached row in an Attribute View database. Returns the created row with its ID and cell values.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            name: { type: 'string', description: 'Name/title of the new row (primary "block" column content). Empty if omitted.' },
+            values: {
+              type: 'array',
+              description: 'Optional initial values for other columns',
+              items: {
+                type: 'object',
+                properties: {
+                  keyId: { type: 'string', description: 'Column ID (keyID, from av_render_database)' },
+                  type: { type: 'string', enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'], description: 'Column type' },
+                  content: { description: 'Value by type: string for text/select/url/email/phone, number for number/date (ms timestamp), boolean for checkbox, string[] for mSelect' }
+                },
+                required: ['keyId', 'type', 'content']
+              }
+            }
+          },
+          required: ['avId']
+        }
+      },
+      {
+        name: 'av_query_database',
+        description: 'Filter rows in an Attribute View database by column name and value (partial match, case-insensitive).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            column: { type: 'string', description: 'Column name or ID to filter by (e.g. "Status", "Area")' },
+            value: { type: 'string', description: 'Value to search for (partial match, case-insensitive)' }
+          },
+          required: ['avId', 'column', 'value']
+        }
+      },
+      {
+        name: 'av_create_database',
+        description: 'Create a new Attribute View database with a document in a notebook. Returns avId for use with all other av_* tools.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            notebookId: { type: 'string', description: 'Notebook ID where the database will be created (from list_notebooks)' },
+            name: { type: 'string', description: 'Database name (also used as the document title)' },
+            columns: {
+              type: 'array',
+              description: 'Optional additional columns (primary "Name" column is always created automatically)',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Column name' },
+                  type: { type: 'string', enum: ['text','number','select','mSelect','date','checkbox','url','email','phone','mAsset','created','updated','lineNumber','template','rollup','relation'], description: 'Column type' }
+                },
+                required: ['name', 'type']
+              }
+            }
+          },
+          required: ['notebookId', 'name']
+        }
+      },
       // 新增批量操作工具
       {
         name: 'batch_create_docs',
