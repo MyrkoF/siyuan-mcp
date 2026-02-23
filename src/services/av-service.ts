@@ -238,19 +238,17 @@ export class AttributeViewService {
   }
 
   /**
-   * Crée une nouvelle ligne (détachée) dans la database via
-   * /api/av/appendAttributeViewDetachedBlocksWithValues.
+   * Crée une nouvelle ligne (détachée) dans la database en écrivant directement
+   * dans le fichier JSON de l'Attribute View.
    *
-   * La colonne de type "block" (colonne primaire) est toujours requise par l'API.
-   * Elle est ajoutée automatiquement avec `name` comme contenu.
-   *
-   * L'API ne retourne pas l'ID de la ligne créée → on diff avant/après
-   * renderDatabase pour récupérer la nouvelle AVRow.
+   * L'API appendAttributeViewDetachedBlocksWithValues retourne code:0 mais ne
+   * persiste pas les lignes de façon fiable — écriture JSON directe utilisée
+   * à la place (même mécanisme que createDatabase et addColumn).
    *
    * @param avId   — Block ID de la database
    * @param name   — Contenu de la colonne primaire "block" (nom/titre de la ligne)
    * @param values — Valeurs initiales optionnelles des autres colonnes
-   * @returns La nouvelle AVRow avec son ID, ou null si introuvable dans le diff
+   * @returns La nouvelle AVRow avec son ID, ou null si le re-render ne la trouve pas
    */
   async createRow(
     avId: string,
@@ -261,67 +259,65 @@ export class AttributeViewService {
       throw new Error('avId est requis');
     }
 
-    // Snapshot des IDs actuels + récupération de la colonne block primaire
-    const before = await this.renderDatabase(avId);
-    const beforeIds = new Set(before.rows.map(r => r.id));
+    // Lire le JSON de la database depuis le filesystem
+    const avStoragePath = this.resolveAvStoragePath();
+    const avFilePath = path.join(avStoragePath, `${avId.trim()}.json`);
+    if (!fs.existsSync(avFilePath)) {
+      throw new Error(`Fichier AV introuvable: ${avFilePath}`);
+    }
+    const dbJson = JSON.parse(fs.readFileSync(avFilePath, 'utf8'));
 
-    const blockCol = before.columns.find(c => c.type === 'block');
-    if (!blockCol) {
+    const keyValues: any[] = dbJson.keyValues ?? [];
+    const pkEntry = keyValues.find((kv: any) => kv.key?.type === 'block');
+    if (!pkEntry) {
       throw new Error('Colonne primaire de type "block" introuvable dans cette database');
     }
 
-    // Colonne block en premier (obligatoire pour l'API)
-    const blockEntry: any = {
-      keyID: blockCol.id,
-      type: 'block',
-      isDetached: true,
-      block: { content: name, id: '' }
-    };
+    const rowId = this.generateSiyuanId();
+    const now   = Date.now();
 
-    // Autres valeurs fournies par l'utilisateur (sans doublon sur la colonne block)
-    const otherValues = values
-      .filter(v => v.keyId !== blockCol.id)
-      .map(v => this.buildBlockValue(v));
+    // Valeur de la colonne primaire (block)
+    if (!pkEntry.values) pkEntry.values = [];
+    pkEntry.values.push({
+      id:          this.generateSiyuanId(),
+      keyID:       pkEntry.key.id,
+      blockID:     rowId,
+      type:        'block',
+      isDetached:  true,
+      createdAt:   now,
+      updatedAt:   now,
+      block: { id: rowId, content: name, created: now, updated: now }
+    });
 
-    const response = await this.client.request(
-      '/api/av/appendAttributeViewDetachedBlocksWithValues',
-      {
-        avID: avId.trim(),
-        blocksValues: [[blockEntry, ...otherValues]]   // 2D array : une seule ligne
-      }
-    );
+    // Valeurs des autres colonnes
+    const sysTypes = new Set(['created', 'updated', 'lineNumber', 'template', 'rollup', 'relation']);
 
-    if (!response || response.code !== 0) {
-      throw new Error(
-        `Création de ligne échouée: ${response?.msg ?? 'erreur inconnue'}`
-      );
+    for (const v of values.filter(vv => vv.keyId !== pkEntry.key.id)) {
+      const colEntry = keyValues.find((kv: any) => kv.key?.id === v.keyId);
+      if (!colEntry) continue;
+
+      const colType = colEntry.key.type as string;
+      if (sysTypes.has(colType)) continue;
+
+      if (!colEntry.values) colEntry.values = [];
+      const typeData = this.buildJsonValue(v);
+      colEntry.values.push({
+        id:        this.generateSiyuanId(),
+        keyID:     v.keyId,
+        blockID:   rowId,
+        type:      colType,
+        createdAt: now,
+        updatedAt: now,
+        ...typeData
+      });
     }
 
-    // Re-render pour trouver la nouvelle ligne par diff
-    const after = await this.renderDatabase(avId);
-    const newRow = after.rows.find(r => !beforeIds.has(r.id));
+    // Écrire le JSON mis à jour
+    fs.writeFileSync(avFilePath, JSON.stringify(dbJson, null, 2), 'utf8');
 
-    if (!newRow) return null;
-
-    // Pour les types select/mSelect, setAttributeViewBlockAttr est plus fiable
-    // que blocksValues (qui ne crée pas les options à la volée).
-    // On rappelle updateRow pour chaque valeur non-block fournie.
-    if (values.length > 0) {
-      for (const v of values.filter(v => v.keyId !== blockCol.id)) {
-        try {
-          // buildUpdateValue génère le format attendu par setAttributeViewBlockAttr
-          // (différent de buildBlockValue qui est pour appendAttributeViewDetachedBlocksWithValues)
-          await this.updateRow(avId, newRow.id, v.keyId, this.buildUpdateValue(v));
-        } catch {
-          // Ignorer silencieusement — la ligne est créée, les valeurs sont best-effort
-        }
-      }
-      // Re-render final pour retourner les vraies valeurs persistées
-      const final = await this.renderDatabase(avId);
-      return final.rows.find(r => r.id === newRow.id) ?? newRow;
-    }
-
-    return newRow;
+    // Re-render pour retourner la ligne avec ses valeurs parsées
+    const rendered = await this.renderDatabase(avId);
+    return rendered.rows.find(r => r.id === rowId) ?? null;
   }
 
   /**
@@ -592,6 +588,47 @@ export class AttributeViewService {
         );
       default:
         return { [v.type]: { content: v.content } };
+    }
+  }
+
+  /**
+   * Convertit un AVCreateRowValue en données typées pour écriture directe dans
+   * le JSON de l'AV (format stockage, différent du format API setAttributeViewBlockAttr).
+   * Retourne uniquement les champs spécifiques au type ({text:…}, {mSelect:…}, etc.)
+   * à merger dans l'entrée value complète.
+   */
+  private buildJsonValue(v: AVCreateRowValue): any {
+    switch (v.type) {
+      case 'text':
+      case 'url':
+      case 'email':
+      case 'phone':
+        return { [v.type]: { content: String(v.content ?? '') } };
+      case 'number':
+        return { number: { content: Number(v.content) } };
+      case 'checkbox':
+        return { checkbox: { checked: Boolean(v.content) } };
+      case 'select':
+        // SiYuan stocke select comme mSelect (tableau) même pour single-select
+        return { mSelect: [{ content: String(v.content ?? '') }] };
+      case 'mSelect': {
+        const items = Array.isArray(v.content) ? v.content : [v.content];
+        return { mSelect: items.map((c: any) => ({ content: String(c) })) };
+      }
+      case 'date':
+        return { date: { content: Number(v.content), isNotTime: true } };
+      case 'mAsset': {
+        const assets = Array.isArray(v.content) ? v.content : [v.content];
+        return {
+          mAsset: assets.map((a: any) => ({
+            type:    a.type    ?? 'file',
+            name:    a.name    ?? '',
+            content: a.content ?? ''
+          }))
+        };
+      }
+      default:
+        return {};
     }
   }
 
