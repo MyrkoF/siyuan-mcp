@@ -381,6 +381,17 @@ export class AttributeViewService {
       }
       case 'date':
         return { date: { content: Number(v.content), isNotEmpty: true } };
+      case 'mAsset': {
+        // content: array of {type, name, content} or a single object
+        const assets = Array.isArray(v.content) ? v.content : [v.content];
+        return {
+          mAsset: assets.map((a: any) => ({
+            type: a.type ?? 'file',
+            name: a.name ?? '',
+            content: a.content ?? ''
+          }))
+        };
+      }
       default:
         return { [v.type]: { content: v.content } };
     }
@@ -419,9 +430,17 @@ export class AttributeViewService {
         break;
       }
       case 'date':
-        // content = timestamp en ms (number) ou string ISO
         base.date = { content: Number(v.content), isNotEmpty: true };
         break;
+      case 'mAsset': {
+        const assets = Array.isArray(v.content) ? v.content : [v.content];
+        base.mAsset = assets.map((a: any) => ({
+          type: a.type ?? 'file',
+          name: a.name ?? '',
+          content: a.content ?? ''
+        }));
+        break;
+      }
       default:
         base[v.type] = { content: v.content };
     }

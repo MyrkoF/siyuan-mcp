@@ -59,6 +59,28 @@ export function parseCellValue(cell: any): any {
     case 'rollup':
       return v.rollup?.content ?? null;
 
+    case 'template':
+      // Template column: computed read-only string
+      return v.template?.content ?? '';
+
+    case 'mAsset':
+      // Assets column: array of {type, name, content (file path)}
+      return (v.mAsset ?? []).map((a: any) => ({
+        type: a.type ?? 'file',
+        name: a.name ?? '',
+        content: a.content ?? ''
+      }));
+
+    case 'lineNumber':
+      // Auto-generated row number — value is in createdAt (ordering timestamp)
+      return v.createdAt ?? null;
+
+    case 'createdTime':
+      return v.createdAt ?? null;
+
+    case 'updatedTime':
+      return v.updatedAt ?? null;
+
     default:
       // Fallback défensif : tenter d'extraire par clé connue
       if (v.text !== undefined)    return v.text?.content ?? '';
@@ -70,6 +92,7 @@ export function parseCellValue(cell: any): any {
       if (v.url !== undefined)     return v.url?.content ?? '';
       if (v.email !== undefined)   return v.email?.content ?? '';
       if (v.phone !== undefined)   return v.phone?.content ?? '';
+      if (v.mAsset !== undefined)  return (v.mAsset ?? []).map((a: any) => ({ type: a.type ?? 'file', name: a.name ?? '', content: a.content ?? '' }));
       if (v.relation !== undefined) return {
         ids: v.relation?.blockIDs ?? [],
         contents: v.relation?.contents ?? []
