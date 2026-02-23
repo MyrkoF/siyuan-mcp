@@ -176,6 +176,35 @@ When `SIYUAN_API_URL` is not set, the server automatically scans ports 6806, 680
 
 ---
 
+## How Attribute View writes work
+
+SiYuan uses two separate storage systems:
+
+| Storage | Contains | Access |
+|---------|----------|--------|
+| SQLite (`blocks.db`) | Documents, blocks, text content | HTTP API |
+| JSON files (`/data/storage/av/*.json`) | Database columns, rows, cell values | **Filesystem** (for writes) + HTTP API (for reads) |
+
+### Why some tools access the filesystem directly
+
+SiYuan's HTTP API is incomplete for Attribute View **write** operations:
+
+- **No API to create a database** — only filesystem write works
+- **No API to add columns** — only filesystem write works
+- **`appendAttributeViewDetachedBlocksWithValues`** — returns `code: 0` but silently fails to persist rows (observed in SiYuan 3.5.7)
+
+As a result, `av_create_database` and `av_create_row` write directly to the AV JSON files in your workspace instead of calling the HTTP API. This is the same mechanism SiYuan itself uses internally.
+
+**Read operations** (`av_render_database`, `av_query_database`, `av_list_databases`) and **cell updates** (`av_update_row`) use the HTTP API normally and are unaffected.
+
+### Filesystem access requirements
+
+Tools that write to the filesystem (`av_create_database`, `av_create_row`) require the MCP server to run **on the same machine as SiYuan** with access to the workspace directory. Remote-only deployments (e.g. SiYuan behind a reverse proxy on another host) will not be able to use these tools.
+
+Set `SIYUAN_WORKSPACE_PATH` to point to your SiYuan workspace root if it is not at the default `~/SiYuan` location.
+
+---
+
 ## Usage examples
 
 ### Attribute View databases
@@ -205,6 +234,8 @@ av_create_row(
 )
 → the new row with its ID and all cell values
 ```
+
+> **Note:** `av_create_row` writes directly to the workspace filesystem (same as `av_create_database`). The MCP server must run on the same machine as SiYuan.
 
 #### Update multiple cells in one call
 ```
