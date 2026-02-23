@@ -17,8 +17,11 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 | `av_delete_row` | Delete one or more rows from a database by row ID |
 | `av_update_row` | Update one or more cells in a row in a single API call (batch) |
 | `av_query_database` | Filter rows by column name/value (partial match, case-insensitive) |
+| `av_create_database` | Create a new Attribute View database with a document in a notebook |
 
-**Supported column types:** `block` (primary key), `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `relation`, `rollup`
+**Supported column types (read/write):** `block` (primary key), `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `mAsset`
+
+**System/computed columns (read-only — value set by SiYuan):** `relation`, `rollup`, `created`, `updated`, `lineNumber`, `template`
 
 ### Documents
 | Tool | Description |
@@ -52,7 +55,7 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 ### Search
 | Tool | Description |
 |------|-------------|
-| `search_content` / `notes.search` | Full-text keyword search |
+| `search_content` | Full-text keyword search |
 | `advanced_search` | Multi-criteria search (tags, date range, block type) |
 | `quick_text_search` | Simplified text search with case/word options |
 | `search_by_tags` | Search by one or multiple tags |
@@ -119,6 +122,7 @@ npm run build
 |----------|----------|-------------|
 | `SIYUAN_API_TOKEN` | **Yes** | Your SiYuan API token (from Settings → About) |
 | `SIYUAN_API_URL` | No | SiYuan API base URL. If omitted, the server auto-discovers the port by scanning 6806–6808. |
+| `SIYUAN_WORKSPACE_PATH` | No | Path to your SiYuan workspace root (e.g. `/home/user/SiYuan`). Required for `av_create_database` on non-standard setups. Defaults to `~/SiYuan`. |
 
 **Legacy aliases** (still supported): `SIYUAN_TOKEN` → `SIYUAN_API_TOKEN`, `SIYUAN_BASE_URL` → `SIYUAN_API_URL`
 
@@ -236,6 +240,29 @@ av_delete_row(
 )
 ```
 
+#### Create a new database
+Creates a new Attribute View database and its host document in a notebook.
+
+```
+av_create_database(
+  notebookId: "20251217123754-wo6vimv",
+  name: "DB-Projects",
+  columns: [
+    { name: "Status",   type: "select" },
+    { name: "Priority", type: "select" },
+    { name: "Due",      type: "date" },
+    { name: "Done",     type: "checkbox" },
+    { name: "Notes",    type: "text" }
+  ]
+)
+→ { avId, docId, name, notebookId }
+```
+
+The `avId` returned can immediately be used with all other `av_*` tools.
+Columns of system types (`created`, `updated`, `lineNumber`, `rollup`, `relation`) can be declared but their values are managed by SiYuan — you cannot write to them manually.
+
+> **Note:** `av_create_database` writes the database JSON file directly to the workspace. Set `SIYUAN_WORKSPACE_PATH` if your workspace is not at the default `~/SiYuan` location.
+
 ---
 
 ### Documents
@@ -307,11 +334,13 @@ This project is a fork of [GALIAIS/siyuan-mcp-server](https://github.com/GALIAIS
 The original project provided the foundational MCP server structure for SiYuan (notebooks, documents, blocks, search, assets, tags). This fork adds:
 
 - **Full Attribute View (database) support** — the main feature missing from all existing SiYuan MCP servers
+- **Database creation** — `av_create_database` creates databases programmatically with typed columns
 - **Document CRUD** — get, rename, delete (with cascade protection), move
 - **Batch cell update** — update multiple database cells in a single API call
+- **Full column type coverage** — all 16 SiYuan column types parsed; 11 writable + 5 system/computed
 - Universal deployment design (no hardcoded workspace structure)
 - Auto-discovery of SiYuan port
-- Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`)
+- Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`, `SIYUAN_WORKSPACE_PATH`)
 
 ---
 
