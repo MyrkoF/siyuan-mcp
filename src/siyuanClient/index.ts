@@ -23,6 +23,10 @@ export interface SiyuanClientConfig {
 export interface SiyuanClient {
   // 基础方法
   request(endpoint: string, data?: any): Promise<any>;
+  /** Read a file from the workspace. Returns raw content (not {code,data} wrapper). */
+  fileGet(workspacePath: string): Promise<any>;
+  /** Write a file to the workspace via multipart putFile. Throws on error. */
+  filePut(workspacePath: string, content: string): Promise<void>;
   checkHealth(): Promise<{ status: string; detail: any }>;
   searchNotes(query: string, limit?: number): Promise<any>;
   
@@ -187,7 +191,35 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
 
   const client: SiyuanClient = {
     request,
-    
+
+    async fileGet(workspacePath: string): Promise<any> {
+      if (portDiscoveryPromise) { await portDiscoveryPromise; portDiscoveryPromise = null; }
+      // getFile returns the raw file content directly (not a {code,data,msg} wrapper)
+      const response = await httpClient.post('/api/file/getFile', { path: workspacePath });
+      return response.data;
+    },
+
+    async filePut(workspacePath: string, content: string): Promise<void> {
+      if (portDiscoveryPromise) { await portDiscoveryPromise; portDiscoveryPromise = null; }
+      // putFile requires multipart form data — JSON body is rejected by SiYuan
+      const formData = new FormData();
+      formData.append('path', workspacePath);
+      formData.append('isDir', 'false');
+      formData.append('modTime', String(Math.floor(Date.now() / 1000)));
+      formData.append(
+        'file',
+        new Blob([content], { type: 'application/octet-stream' }),
+        'file.json'
+      );
+      const response = await httpClient.post('/api/file/putFile', formData, {
+        // Remove the default application/json header so axios sets multipart/form-data
+        headers: { 'Content-Type': undefined }
+      });
+      if (response.data?.code !== 0) {
+        throw new Error(`putFile échoué: ${response.data?.msg ?? 'erreur inconnue'}`);
+      }
+    },
+
     async checkHealth() {
       try {
         const response = await request('/api/system/version');

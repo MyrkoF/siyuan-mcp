@@ -10,8 +10,6 @@
  *
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { SiyuanClient } from '../siyuanClient';
 import { parseColumns, parseRow, findColumn } from '../utils/avParser';
 
@@ -259,13 +257,12 @@ export class AttributeViewService {
       throw new Error('avId est requis');
     }
 
-    // Lire le JSON de la database depuis le filesystem
-    const avStoragePath = this.resolveAvStoragePath();
-    const avFilePath = path.join(avStoragePath, `${avId.trim()}.json`);
-    if (!fs.existsSync(avFilePath)) {
-      throw new Error(`Fichier AV introuvable: ${avFilePath}`);
+    // Lire le JSON de la database via l'API HTTP
+    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
+    const dbJson = await this.client.fileGet(avHttpPath);
+    if (!dbJson || typeof dbJson !== 'object') {
+      throw new Error(`Fichier AV introuvable ou invalide: ${avHttpPath}`);
     }
-    const dbJson = JSON.parse(fs.readFileSync(avFilePath, 'utf8'));
 
     const keyValues: any[] = dbJson.keyValues ?? [];
     const pkEntry = keyValues.find((kv: any) => kv.key?.type === 'block');
@@ -312,8 +309,8 @@ export class AttributeViewService {
       });
     }
 
-    // Écrire le JSON mis à jour
-    fs.writeFileSync(avFilePath, JSON.stringify(dbJson, null, 2), 'utf8');
+    // Écrire le JSON mis à jour via l'API HTTP
+    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
 
     // Re-render pour retourner la ligne avec ses valeurs parsées
     const rendered = await this.renderDatabase(avId);
@@ -460,11 +457,9 @@ export class AttributeViewService {
       ]
     };
 
-    // Écrire le fichier JSON directement sur le filesystem
-    // (aucun endpoint HTTP pour créer une AV dans SiYuan)
-    const avStoragePath = this.resolveAvStoragePath();
-    const avFilePath = path.join(avStoragePath, `${avId}.json`);
-    fs.writeFileSync(avFilePath, JSON.stringify(dbJson, null, 2), 'utf8');
+    // Écrire le fichier JSON via l'API HTTP putFile
+    const avHttpPath = `/data/storage/av/${avId}.json`;
+    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
 
     // Créer le document dans le notebook
     const docResp = await this.client.request('/api/filetree/createDocWithMd', {
@@ -475,7 +470,7 @@ export class AttributeViewService {
 
     if (!docResp || docResp.code !== 0) {
       // Nettoyer le fichier créé si la création doc échoue
-      try { fs.unlinkSync(avFilePath); } catch {}
+      try { await this.client.request('/api/file/removeFile', { path: avHttpPath }); } catch {}
       throw new Error(`Création du document échouée: ${docResp?.msg ?? 'erreur inconnue'}`);
     }
 
@@ -513,31 +508,6 @@ export class AttributeViewService {
       chars[Math.floor(Math.random() * chars.length)]
     ).join('');
     return `${ts}-${suffix}`;
-  }
-
-  /**
-   * Résout le chemin du répertoire /data/storage/av depuis le workspace SiYuan.
-   * Cherche dans les emplacements connus ou utilise SIYUAN_WORKSPACE_PATH.
-   */
-  private resolveAvStoragePath(): string {
-    // Priorité : variable d'environnement
-    if (process.env.SIYUAN_WORKSPACE_PATH) {
-      const p = path.join(process.env.SIYUAN_WORKSPACE_PATH, 'data', 'storage', 'av');
-      if (fs.existsSync(p)) return p;
-    }
-    // Emplacement par défaut Linux/Mac
-    const home = process.env.HOME || process.env.USERPROFILE || '';
-    const candidates = [
-      path.join(home, 'SiYuan', 'data', 'storage', 'av'),
-      path.join(home, 'Documents', 'SiYuan', 'data', 'storage', 'av'),
-    ];
-    for (const c of candidates) {
-      if (fs.existsSync(c)) return c;
-    }
-    throw new Error(
-      'Répertoire /data/storage/av introuvable. ' +
-      'Définissez SIYUAN_WORKSPACE_PATH pour pointer vers votre workspace SiYuan.'
-    );
   }
 
   /**

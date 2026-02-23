@@ -122,7 +122,6 @@ npm run build
 |----------|----------|-------------|
 | `SIYUAN_API_TOKEN` | **Yes** | Your SiYuan API token (from Settings → About) |
 | `SIYUAN_API_URL` | No | SiYuan API base URL. If omitted, the server auto-discovers the port by scanning 6806–6808. |
-| `SIYUAN_WORKSPACE_PATH` | No | Path to your SiYuan workspace root (e.g. `/home/user/SiYuan`). Required for `av_create_database` on non-standard setups. Defaults to `~/SiYuan`. |
 
 **Legacy aliases** (still supported): `SIYUAN_TOKEN` → `SIYUAN_API_TOKEN`, `SIYUAN_BASE_URL` → `SIYUAN_API_URL`
 
@@ -183,25 +182,18 @@ SiYuan uses two separate storage systems:
 | Storage | Contains | Access |
 |---------|----------|--------|
 | SQLite (`blocks.db`) | Documents, blocks, text content | HTTP API |
-| JSON files (`/data/storage/av/*.json`) | Database columns, rows, cell values | **Filesystem** (for writes) + HTTP API (for reads) |
+| JSON files (`/data/storage/av/*.json`) | Database columns, rows, cell values | HTTP API (`/api/file/getFile` + `/api/file/putFile`) |
 
-### Why some tools access the filesystem directly
+### Why `av_create_database` and `av_create_row` use file API calls
 
-SiYuan's HTTP API is incomplete for Attribute View **write** operations:
+SiYuan's high-level HTTP API is incomplete for Attribute View **write** operations:
 
-- **No API to create a database** — only filesystem write works
-- **No API to add columns** — only filesystem write works
-- **`appendAttributeViewDetachedBlocksWithValues`** — returns `code: 0` but silently fails to persist rows (observed in SiYuan 3.5.7)
+- **No API to create a database** — no endpoint creates a new `.json` AV file
+- **No API to add rows with values at creation time** — `appendAttributeViewDetachedBlocksWithValues` returns `code: 0` but silently fails to persist rows (observed in SiYuan 3.5.7)
 
-As a result, `av_create_database` and `av_create_row` write directly to the AV JSON files in your workspace instead of calling the HTTP API. This is the same mechanism SiYuan itself uses internally.
+As a result, `av_create_database` and `av_create_row` construct the AV JSON directly and write it via SiYuan's `/api/file/putFile` endpoint. Reading uses `/api/file/getFile`. This is pure HTTP — no local filesystem access required.
 
-**Read operations** (`av_render_database`, `av_query_database`, `av_list_databases`) and **cell updates** (`av_update_row`) use the HTTP API normally and are unaffected.
-
-### Filesystem access requirements
-
-Tools that write to the filesystem (`av_create_database`, `av_create_row`) require the MCP server to run **on the same machine as SiYuan** with access to the workspace directory. Remote-only deployments (e.g. SiYuan behind a reverse proxy on another host) will not be able to use these tools.
-
-Set `SIYUAN_WORKSPACE_PATH` to point to your SiYuan workspace root if it is not at the default `~/SiYuan` location.
+**All other operations** (`av_render_database`, `av_query_database`, `av_list_databases`, `av_update_row`, `av_delete_row`) use the standard `/api/av/` endpoints normally.
 
 ---
 
@@ -235,7 +227,7 @@ av_create_row(
 → the new row with its ID and all cell values
 ```
 
-> **Note:** `av_create_row` writes directly to the workspace filesystem (same as `av_create_database`). The MCP server must run on the same machine as SiYuan.
+> **Note:** `av_create_row` uses SiYuan's `/api/file/getFile` + `/api/file/putFile` HTTP endpoints to read and write the AV JSON. No local filesystem access is required — works with remote SiYuan instances.
 
 #### Update multiple cells in one call
 ```
@@ -292,7 +284,7 @@ av_create_database(
 The `avId` returned can immediately be used with all other `av_*` tools.
 Columns of system types (`created`, `updated`, `lineNumber`, `rollup`, `relation`) can be declared but their values are managed by SiYuan — you cannot write to them manually.
 
-> **Note:** `av_create_database` writes the database JSON file directly to the workspace. Set `SIYUAN_WORKSPACE_PATH` if your workspace is not at the default `~/SiYuan` location.
+> **Note:** `av_create_database` uses SiYuan's `/api/file/putFile` HTTP endpoint to write the database JSON. No local filesystem access or `SIYUAN_WORKSPACE_PATH` configuration required.
 
 ---
 
@@ -369,9 +361,9 @@ The original project provided the foundational MCP server structure for SiYuan (
 - **Document CRUD** — get, rename, delete (with cascade protection), move
 - **Batch cell update** — update multiple database cells in a single API call
 - **Full column type coverage** — all 16 SiYuan column types parsed; 11 writable + 5 system/computed
-- Universal deployment design (no hardcoded workspace structure)
+- **Universal deployment** — all operations use the HTTP API (`/api/file/putFile` + `/api/file/getFile`); no local filesystem access or `SIYUAN_WORKSPACE_PATH` required; works with remote SiYuan instances
 - Auto-discovery of SiYuan port
-- Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`, `SIYUAN_WORKSPACE_PATH`)
+- Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`)
 
 ---
 
