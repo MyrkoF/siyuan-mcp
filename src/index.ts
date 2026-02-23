@@ -451,7 +451,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
       case 'system_discover_ports':
-        const portDiscovery = createPortDiscovery(process.env.SIYUAN_TOKEN || '');
+        const portDiscovery = createPortDiscovery(process.env.SIYUAN_API_TOKEN || process.env.SIYUAN_TOKEN || '');
         const result = await portDiscovery.autoDiscover();
         return {
           content: [{ 

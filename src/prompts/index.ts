@@ -37,11 +37,11 @@ export class PromptTemplateManager {
 
   constructor() {
     this.siyuanClient = createSiyuanClient({
-      baseURL: process.env.SIYUAN_BASE_URL || undefined,
-      token: process.env.SIYUAN_TOKEN || '',
+      baseURL: process.env.SIYUAN_API_URL || process.env.SIYUAN_BASE_URL || undefined,
+      token: process.env.SIYUAN_API_TOKEN || process.env.SIYUAN_TOKEN || '',
       autoDiscoverPort: true
     });
-    
+
     this.templates = new Map();
     this.initializeTemplates();
   }
