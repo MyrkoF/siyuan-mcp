@@ -1,6 +1,6 @@
 {
   "name": "siyuan-query-mcp",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Model Context Protocol server for SiYuan notes with with Search and Query plugin installed required",
   "main": "dist/index.js",
   "bin": {
