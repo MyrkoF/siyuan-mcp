@@ -15,20 +15,26 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 | `av_render_database` | Read a full database: all columns (with types) and all rows (with parsed cell values) |
 | `av_create_row` | Create a new detached row with an optional name and initial cell values |
 | `av_delete_row` | Delete one or more rows from a database by row ID |
-| `av_update_row` | Update a single cell in a database row |
+| `av_update_row` | Update one or more cells in a row in a single API call (batch) |
 | `av_query_database` | Filter rows by column name/value (partial match, case-insensitive) |
 
 **Supported column types:** `block` (primary key), `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `relation`, `rollup`
 
-### Notebooks & Documents
+### Documents
 | Tool | Description |
 |------|-------------|
-| `list_notebooks` / `notebooks.list` | List all notebooks |
+| `doc_get` | Read a document's Markdown content and path by ID |
+| `doc_rename` | Rename a document by ID |
+| `doc_delete` | Send a document to the SiYuan trash. Refuses if children exist (use `cascade:true` to delete recursively) |
+| `doc_move` | Move one or more documents to a new parent document or notebook |
+
+### Notebooks & Documents (legacy)
+| Tool | Description |
+|------|-------------|
+| `list_notebooks` | List all notebooks |
 | `create_notebook` | Create a new notebook |
 | `create_document` | Create a document with Markdown content |
 | `create_subdocument` | Create a child document under a parent path |
-| `docs.create` | Create a document at a specific path |
-| `docs.list` | List documents in a notebook |
 | `batch_read_all_documents` | Batch-read all documents in a notebook |
 
 ### Blocks
@@ -168,52 +174,114 @@ When `SIYUAN_API_URL` is not set, the server automatically scans ports 6806, 680
 
 ## Usage examples
 
-### List all databases
+### Attribute View databases
+
+#### List all databases
 ```
 av_list_databases()
-→ Returns: [{id, name, columnCount, rowCount}, ...]
+→ [{id, name, columnCount, rowCount}, ...]
 ```
 
-### Read a database
+#### Read a database
 ```
 av_render_database(id: "20251215105701-op0w1p9")
-→ Returns: { name, columns: [{id, name, type}], rows: [{id, cells: {...}}] }
+→ { name, columns: [{id, name, type}], rows: [{id, cells: {...}}] }
 ```
 
-### Create a row
+#### Create a row with initial values
 ```
 av_create_row(
   avId: "20251215105701-op0w1p9",
   name: "New project",
   values: [
-    { keyId: "col-status-id", type: "select", content: "Active" },
-    { keyId: "col-note-id",   type: "text",   content: "Created via MCP" }
+    { keyId: "col-status-id", type: "select",   content: "Active" },
+    { keyId: "col-note-id",   type: "text",     content: "Created via MCP" },
+    { keyId: "col-done-id",   type: "checkbox", content: false }
   ]
 )
-→ Returns: the new row with its ID and all cell values
+→ the new row with its ID and all cell values
 ```
 
-### Update a cell
+#### Update multiple cells in one call
 ```
 av_update_row(
   avId:  "20251215105701-op0w1p9",
   rowId: "20251216093012-abc1234",
-  keyId: "col-status-id",
-  value: { mSelect: [{ content: "Done" }] }
+  updates: [
+    { keyId: "col-status-id",   type: "select", content: "Done" },
+    { keyId: "col-progress-id", type: "number", content: 100 },
+    { keyId: "col-note-id",     type: "text",   content: "Completed" }
+  ]
 )
+→ { avId, rowId, updatedKeys: [...] }
 ```
 
-> **Note on select columns:** SiYuan stores single-select values internally as `mSelect` (array). Always use `{ mSelect: [{ content: "Option Name" }] }` when updating select cells.
+> **Note on select columns:** SiYuan stores single-select values internally as `mSelect` (array). The `type: "select"` in `updates` is handled automatically — no need to use the raw `mSelect` format.
 
-### Filter rows
+#### Filter rows
 ```
 av_query_database(
   avId:   "20251215105701-op0w1p9",
   column: "Status",
   value:  "active"
 )
-→ Returns rows where Status contains "active" (case-insensitive)
+→ rows where Status contains "active" (case-insensitive)
 ```
+
+#### Delete rows
+```
+av_delete_row(
+  avId:   "20251215105701-op0w1p9",
+  rowIds: ["row-id-1", "row-id-2"]
+)
+```
+
+---
+
+### Documents
+
+#### Read a document
+```
+doc_get(id: "20251216093012-abc1234")
+→ { id, hPath: "/My Notebook/My Doc", content: "# Title\n..." }
+```
+
+#### Rename a document
+```
+doc_rename(id: "20251216093012-abc1234", title: "New Title")
+```
+
+#### Delete a document (safe — goes to SiYuan trash)
+```
+# Safe: refuses if children exist
+doc_delete(id: "20251216093012-abc1234")
+→ error: "Suppression refusée : le document a 2 enfant(s). ..."
+
+# Recursive: deletes all children depth-first, then parent
+doc_delete(id: "20251216093012-abc1234", cascade: true)
+→ { id, deletedChildren: [{id, hPath}, ...], childCount: 2 }
+```
+
+#### Move a document
+```
+# Move one doc into another doc (becomes child)
+doc_move(fromIds: ["doc-id"], toId: "parent-doc-id")
+
+# Move to notebook root
+doc_move(fromIds: ["doc-id"], toId: "notebook-id")
+
+# Move multiple docs at once
+doc_move(fromIds: ["doc-1", "doc-2"], toId: "target-id")
+```
+
+---
+
+## How to find IDs
+
+**Database IDs:** use `av_list_databases` — returns all database IDs and names.
+**Column IDs (keyIDs):** returned by `av_render_database` in the `columns` array.
+**Document IDs:** use `search_content`, `docs.list`, or right-click a document in SiYuan → **Copy block ID**.
+**Notebook IDs:** use `list_notebooks`.
 
 ---
 
@@ -232,15 +300,6 @@ npx tsc --noEmit
 
 ---
 
-## How to find database IDs
-
-1. Use `av_list_databases` — it returns all database IDs and names
-2. Or open SiYuan, right-click on a database block → **Copy block ID**
-
-Column IDs (keyIDs) are returned by `av_render_database` in the `columns` array.
-
----
-
 ## Attribution
 
 This project is a fork of [GALIAIS/siyuan-mcp-server](https://github.com/GALIAIS/siyuan-mcp-server).
@@ -248,6 +307,8 @@ This project is a fork of [GALIAIS/siyuan-mcp-server](https://github.com/GALIAIS
 The original project provided the foundational MCP server structure for SiYuan (notebooks, documents, blocks, search, assets, tags). This fork adds:
 
 - **Full Attribute View (database) support** — the main feature missing from all existing SiYuan MCP servers
+- **Document CRUD** — get, rename, delete (with cascade protection), move
+- **Batch cell update** — update multiple database cells in a single API call
 - Universal deployment design (no hardcoded workspace structure)
 - Auto-discovery of SiYuan port
 - Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`)
