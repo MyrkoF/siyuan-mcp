@@ -104,7 +104,8 @@ export class MergedTools {
           properties: {
             notebook: { type: 'string', description: 'Notebook ID' },
             title: { type: 'string', description: 'Document title' },
-            content: { type: 'string', description: 'Document content (Markdown)' }
+            content: { type: 'string', description: 'Document content (Markdown)' },
+            path: { type: 'string', description: 'Document path (optional, defaults to /title). Must start with /. Example: /Projects/MyDoc' }
           },
           required: ['notebook', 'title', 'content']
         }
@@ -736,7 +737,7 @@ export class MergedTools {
           return await this.listNotebooks();
 
         case 'create_document':
-          return await this.createDocument(args.notebook, args.title, args.content);
+          return await this.createDocument(args.notebook, args.title, args.content, args.path);
 
         case 'search_content':
           return await this.searchContent(args.query, args.limit);
@@ -919,7 +920,7 @@ export class MergedTools {
    * @returns Promise<StandardResponse> - 返回创建结果的标准JSON响应
    * @throws Error - 当创建文档失败时抛出异常
    */
-  private async createDocument(notebook: string, title: string, content: string): Promise<StandardResponse> {
+  private async createDocument(notebook: string, title: string, content: string, path?: string): Promise<StandardResponse> {
     try {
       // 参数验证
       if (!notebook || !title || content === undefined) {
@@ -927,21 +928,23 @@ export class MergedTools {
           false,
           "Parameter validation failed",
           { notebook, title, content: content?.substring(0, 50) + '...' },
-          "Notebook ID、标题和内容都是必需的"
+          "notebook, title, and content are all required"
         );
       }
+
+      const docPath = path || `/${title}`;
 
       // 使用正确的API创建文档
       const result = await this.client.request('/api/filetree/createDocWithMd', {
         notebook: notebook,
-        path: `/${title}`,
+        path: docPath,
         markdown: content
       });
 
       if (result && result.code === 0 && result.data) {
         // API返回的data直接就是Document ID
         const docId = result.data;
-        
+
         return createStandardResponse(
           true,
           "Document created successfully",
@@ -951,7 +954,7 @@ export class MergedTools {
             notebook: notebook,
             contentPreview: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
             contentLength: content.length,
-            path: `/${title}`
+            path: docPath
           }
         );
       } else {
