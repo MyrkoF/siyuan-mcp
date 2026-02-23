@@ -1,80 +1,69 @@
-name: 发布Release
+name: Release
 
 on:
   push:
     tags:
-      - 'v*.*.*'  # 匹配语义化版本标签，如v1.0.0
+      - 'v*.*.*'
 
 permissions:
-  contents: write  # 需要写权限来创建release
+  contents: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: 设置Node.js
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
-      
-      - name: 安装依赖
+
+      - name: Install dependencies
         run: npm ci
-      
-      - name: 构建项目
+
+      - name: Build
         run: npm run build
-      
-      - name: 运行测试
-        if: false
-        run: npm test -- --passWithNoTests
-      
-      - name: 打包构建产物
+
+      - name: Package build artifacts
         run: |
           cd dist
-          zip -r ../siyuan-mcp-server-${GITHUB_REF#refs/tags/}.zip .
+          zip -r ../siyuan-query-mcp-${GITHUB_REF#refs/tags/}.zip .
           cd ..
-      
-      - name: 生成Release说明
+
+      - name: Generate release notes
         id: release_notes
         run: |
-          # 获取tag信息
           TAG_NAME=${GITHUB_REF#refs/tags/}
           VERSION=${TAG_NAME#v}
-          
-          # 获取上一个tag
+
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
-          # 生成变更日志
+
           if [ -z "$PREVIOUS_TAG" ]; then
             COMMITS=$(git log --pretty=format:"- %s" --no-merges | head -20)
           else
             COMMITS=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s" --no-merges)
           fi
-          
-          # 创建release说明
+
           cat > release_notes.md << EOF
-          ## 🚀 SiYuan MCP Server ${VERSION}
-          
-          ### 📋 更新内容
+          ## 🚀 SiYuan Query MCP ${VERSION}
+
+          ### Changes
           ${COMMITS}
-          
-          ### 📦 安装使用
-          \`\`\`bash
-          # 全局安装
-          npm install -g siyuan-mcp-server@${VERSION}
-          
-          # 使用
+
+          ### Installation
+
+          \`\`\`json
           {
             "mcpServers": {
               "siyuan": {
                 "command": "npx",
-                "args": ["siyuan-mcp-server"],
+                "args": ["-y", "siyuan-query-mcp@latest"],
                 "env": {
                   "SIYUAN_API_TOKEN": "your-api-token"
                 }
@@ -82,19 +71,19 @@ jobs:
             }
           }
           \`\`\`
-          
-          ### 🔗 相关链接
-          - [使用文档](https://github.com/${GITHUB_REPOSITORY}/blob/main/README.md)
-          - [更新日志](https://github.com/${GITHUB_REPOSITORY}/releases)
+
+          ### Links
+          - [Documentation](https://github.com/${GITHUB_REPOSITORY}/blob/main/README.md)
+          - [Changelog](https://github.com/${GITHUB_REPOSITORY}/releases)
           EOF
-      
-      - name: 创建GitHub Release
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           name: Release ${{ github.ref_name }}
           body_path: release_notes.md
           files: |
-            siyuan-mcp-server-${{ github.ref_name }}.zip
+            siyuan-query-mcp-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
         env:
