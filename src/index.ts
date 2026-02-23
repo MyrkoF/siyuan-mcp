@@ -834,7 +834,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // 合并工具处理 - 包含所有标准工具和增强API工具
       case 'list_notebooks':
-      case 'create_document':
       case 'search_content':
       case 'create_notebook':
       case 'create_subdocument':
