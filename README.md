@@ -99,7 +99,6 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 
 ### Prerequisites
 - [SiYuan Note](https://b3log.org/siyuan/en/) installed and running
-- The **sy-query-view** plugin installed in SiYuan (mandatory)
 - Node.js 18+
 
 ### Get your API token
