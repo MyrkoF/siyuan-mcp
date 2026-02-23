@@ -21,7 +21,7 @@ import { getAllMergedTools, handleMergedTool } from './tools/Tools.js';
 
 const server = new Server(
   {
-    name: 'mcp-server-siyuan',
+    name: 'mcp_server_siyuan',
     version: '1.0.0',
   },
   {
@@ -46,7 +46,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: 'system.health',
+        name: 'system_health',
         description: '检查系统健康状态和思源笔记连接',
         inputSchema: {
           type: 'object',
@@ -55,7 +55,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'system.discover-ports',
+        name: 'system_discover_ports',
         description: '自动发现思源笔记可用端口',
         inputSchema: {
           type: 'object',
@@ -64,7 +64,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'blocks.get',
+        name: 'blocks_get',
         description: '获取指定ID的块内容',
         inputSchema: {
           type: 'object',
@@ -75,7 +75,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'blocks.create',
+        name: 'blocks_create',
         description: '创建新的块',
         inputSchema: {
           type: 'object',
@@ -88,7 +88,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'blocks.update',
+        name: 'blocks_update',
         description: '更新块内容',
         inputSchema: {
           type: 'object',
@@ -100,7 +100,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'blocks.delete',
+        name: 'blocks_delete',
         description: '删除块',
         inputSchema: {
           type: 'object',
@@ -111,7 +111,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'blocks.move',
+        name: 'blocks_move',
         description: '移动块到新位置',
         inputSchema: {
           type: 'object',
@@ -124,7 +124,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'docs.create',
+        name: 'docs_create',
         description: '创建新文档',
         inputSchema: {
           type: 'object',
@@ -138,7 +138,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'docs.list',
+        name: 'docs_list',
         description: '列出文档',
         inputSchema: {
           type: 'object',
@@ -150,7 +150,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'assets.upload',
+        name: 'assets_upload',
         description: '上传文件资源',
         inputSchema: {
           type: 'object',
@@ -162,7 +162,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'assets.list',
+        name: 'assets_list',
         description: '获取文档的资源文件列表',
         inputSchema: {
           type: 'object',
@@ -174,7 +174,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'assets.unused',
+        name: 'assets_unused',
         description: '获取未使用的资源文件',
         inputSchema: {
           type: 'object',
@@ -183,7 +183,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'assets.missing',
+        name: 'assets_missing',
         description: '获取缺失的资源文件',
         inputSchema: {
           type: 'object',
@@ -192,7 +192,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'assets.rename',
+        name: 'assets_rename',
         description: '重命名资源文件',
         inputSchema: {
           type: 'object',
@@ -204,7 +204,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'assets.ocr',
+        name: 'assets_ocr',
         description: '对图片进行OCR识别',
         inputSchema: {
           type: 'object',
@@ -215,7 +215,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'context.session.create',
+        name: 'context_session_create',
         description: '创建新的会话上下文',
         inputSchema: {
           type: 'object',
@@ -226,7 +226,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'context.session.get',
+        name: 'context_session_get',
         description: '获取会话上下文信息',
         inputSchema: {
           type: 'object',
@@ -238,7 +238,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'context.session.update',
+        name: 'context_session_update',
         description: '更新会话上下文数据',
         inputSchema: {
           type: 'object',
@@ -251,7 +251,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'context.reference.add',
+        name: 'context_reference_add',
         description: '添加引用到上下文',
         inputSchema: {
           type: 'object',
@@ -266,7 +266,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'context.reference.list',
+        name: 'context_reference_list',
         description: '列出会话的引用上下文',
         inputSchema: {
           type: 'object',
@@ -278,7 +278,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'context.merge',
+        name: 'context_merge',
         description: '合并会话上下文',
         inputSchema: {
           type: 'object',
@@ -290,7 +290,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'context.summary',
+        name: 'context_summary',
         description: '导出上下文摘要',
         inputSchema: {
           type: 'object',
@@ -301,7 +301,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'resources.discover',
+        name: 'resources_discover',
         description: '发现可用的思源笔记资源',
         inputSchema: {
           type: 'object',
@@ -318,7 +318,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'resources.search',
+        name: 'resources_search',
         description: '搜索思源笔记资源',
         inputSchema: {
           type: 'object',
@@ -333,7 +333,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'resources.stats',
+        name: 'resources_stats',
         description: '获取资源统计信息',
         inputSchema: {
           type: 'object',
@@ -342,7 +342,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'prompts.list',
+        name: 'prompts_list',
         description: '列出所有可用的提示模板',
         inputSchema: {
           type: 'object',
@@ -351,7 +351,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'prompts.get',
+        name: 'prompts_get',
         description: '获取指定的提示模板',
         inputSchema: {
           type: 'object',
@@ -363,7 +363,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'prompts.validate',
+        name: 'prompts_validate',
         description: '验证提示模板变量',
         inputSchema: {
           type: 'object',
@@ -378,7 +378,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       ...getAllMergedTools(),
       // 新增批量操作工具
       {
-        name: 'batch.create-docs',
+        name: 'batch_create_docs',
         description: '批量创建文档',
         inputSchema: {
           type: 'object',
@@ -402,7 +402,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'batch.search-queries',
+        name: 'batch_search_queries',
         description: '批量搜索查询',
         inputSchema: {
           type: 'object',
@@ -418,7 +418,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'system.cache-stats',
+        name: 'system_cache_stats',
         description: '获取缓存统计信息',
         inputSchema: {
           type: 'object',
@@ -427,7 +427,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'system.retry-stats',
+        name: 'system_retry_stats',
         description: '获取重试统计信息',
         inputSchema: {
           type: 'object',
@@ -444,13 +444,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
-      case 'system.health':
+      case 'system_health':
         const healthResult = await siyuanClient.checkHealth();
         return {
           content: [{ type: 'text', text: JSON.stringify(healthResult, null, 2) }]
         };
 
-      case 'system.discover-ports':
+      case 'system_discover_ports':
         const portDiscovery = createPortDiscovery(process.env.SIYUAN_TOKEN || '');
         const result = await portDiscovery.autoDiscover();
         return {
@@ -463,13 +463,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }]
         };
 
-      case 'blocks.get':
+      case 'blocks_get':
         const blockResult = await siyuanClient.blocks.getBlock(args?.id as string);
         return {
           content: [{ type: 'text', text: JSON.stringify(blockResult, null, 2) }]
         };
 
-      case 'blocks.create':
+      case 'blocks_create':
         const createResult = await siyuanClient.blocks.insertBlock(
           args?.content as string, 
           args?.parentID as string, 
@@ -479,19 +479,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(createResult, null, 2) }]
         };
 
-      case 'blocks.update':
+      case 'blocks_update':
         const updateResult = await siyuanClient.blocks.updateBlock(args?.id as string, args?.content as string);
         return {
           content: [{ type: 'text', text: JSON.stringify(updateResult, null, 2) }]
         };
 
-      case 'blocks.delete':
+      case 'blocks_delete':
         const deleteResult = await siyuanClient.blocks.deleteBlock(args?.id as string);
         return {
           content: [{ type: 'text', text: JSON.stringify(deleteResult, null, 2) }]
         };
 
-      case 'blocks.move':
+      case 'blocks_move':
         const moveResult = await siyuanClient.blocks.moveBlock(
           args?.id as string, 
           args?.parentID as string, 
@@ -501,7 +501,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(moveResult, null, 2) }]
         };
 
-      case 'docs.create':
+      case 'docs_create':
         try {
           // 增强的文档创建，包含参数验证和错误处理
           const docCreateResult = await siyuanClient.documents.createDoc(
@@ -542,7 +542,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-      case 'docs.list':
+      case 'docs_list':
         const docListResult = await siyuanClient.documents.listDocs(
           args?.notebook as string
         );
@@ -550,7 +550,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(docListResult, null, 2) }]
         };
 
-      case 'assets.upload':
+      case 'assets_upload':
         // 处理文件上传 - 如果是字符串，假设是base64或需要转换
         const fileData = args?.file as string;
         const buffer = Buffer.from(fileData, 'base64'); // 假设是base64编码
@@ -563,7 +563,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(uploadResult, null, 2) }]
         };
 
-      case 'assets.list':
+      case 'assets_list':
         const assetsResult = args?.type === 'images' 
           ? await siyuanClient.assets.getDocImageAssets(args?.id as string)
           : await siyuanClient.assets.getDocAssets(args?.id as string);
@@ -571,19 +571,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(assetsResult, null, 2) }]
         };
 
-      case 'assets.unused':
+      case 'assets_unused':
         const unusedResult = await siyuanClient.assets.getUnusedAssets();
         return {
           content: [{ type: 'text', text: JSON.stringify(unusedResult, null, 2) }]
         };
 
-      case 'assets.missing':
+      case 'assets_missing':
         const missingResult = await siyuanClient.assets.getMissingAssets();
         return {
           content: [{ type: 'text', text: JSON.stringify(missingResult, null, 2) }]
         };
 
-      case 'assets.rename':
+      case 'assets_rename':
         const renameResult = await siyuanClient.assets.renameAsset(
           args?.oldPath as string, 
           args?.newPath as string
@@ -592,20 +592,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(renameResult, null, 2) }]
         };
 
-      case 'assets.ocr':
+      case 'assets_ocr':
         const ocrResult = await siyuanClient.assets.ocr(args?.path as string);
         return {
           content: [{ type: 'text', text: JSON.stringify(ocrResult, null, 2) }]
         };
 
       // 上下文管理工具
-      case 'context.session.create':
+      case 'context_session_create':
         const session = await contextManager.createSession(args?.userId as string);
         return {
           content: [{ type: 'text', text: JSON.stringify(session, null, 2) }]
         };
 
-      case 'context.session.get':
+      case 'context_session_get':
         const sessionData = await contextManager.getSessionContext(
           args?.sessionId as string, 
           args?.key as string
@@ -614,7 +614,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(sessionData, null, 2) }]
         };
 
-      case 'context.session.update':
+      case 'context_session_update':
         await contextManager.updateSessionContext(
           args?.sessionId as string,
           args?.key as string,
@@ -624,7 +624,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: 'Session context updated successfully' }]
         };
 
-      case 'context.reference.add':
+      case 'context_reference_add':
         const refType = args?.type as 'block' | 'document' | 'selection';
         const sessionId = args?.sessionId as string;
         const refId = args?.id as string;
@@ -646,7 +646,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: `Reference added to session ${sessionId}` }]
         };
 
-      case 'context.reference.list':
+      case 'context_reference_list':
         const references = await contextManager.getReferences(
           args?.sessionId as string,
           args?.type as 'block' | 'document' | 'selection'
@@ -655,7 +655,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(references, null, 2) }]
         };
 
-      case 'context.merge':
+      case 'context_merge':
         const mergedContext = await contextManager.mergeContexts(
           args?.sessionId as string,
           args?.strategy as 'recent' | 'relevant' | 'all'
@@ -664,14 +664,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(mergedContext, null, 2) }]
         };
 
-      case 'context.summary':
+      case 'context_summary':
         const summary = await contextManager.exportContextSummary(args?.sessionId as string);
         return {
           content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }]
         };
 
       // 资源发现工具
-      case 'resources.discover':
+      case 'resources_discover':
         try {
           const discoverResult = await resourceDirectory.discoverResources(
             {
@@ -713,7 +713,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-      case 'resources.search':
+      case 'resources_search':
         try {
           const query = args?.query as string;
           
@@ -769,20 +769,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-      case 'resources.stats':
+      case 'resources_stats':
         const stats = await resourceDirectory.getResourceStats();
         return {
           content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }]
         };
 
       // 提示模板工具
-      case 'prompts.list':
+      case 'prompts_list':
         const availablePrompts = promptTemplateManager.getAvailablePrompts();
         return {
           content: [{ type: 'text', text: JSON.stringify(availablePrompts, null, 2) }]
         };
 
-      case 'prompts.get':
+      case 'prompts_get':
         const promptResult = await promptTemplateManager.getPrompt(
           args?.name as string,
           args?.variables as Record<string, any> || {}
@@ -791,7 +791,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(promptResult, null, 2) }]
         };
 
-      case 'prompts.validate':
+      case 'prompts_validate':
         const validation = promptTemplateManager.validateVariables(
           args?.name as string,
           args?.variables as Record<string, any> || {}
@@ -801,7 +801,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
       // 批量操作工具
-      case 'batch.create-docs':
+      case 'batch_create_docs':
         const batchDocsResult = await siyuanClient.batch.batchCreateDocs(
           (args?.requests as any[]) || []
         );
@@ -809,7 +809,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(batchDocsResult, null, 2) }]
         };
 
-      case 'batch.search-queries':
+      case 'batch_search_queries':
         const batchSearchResult = await siyuanClient.batch.batchSearchQueries(
           (args?.queries as string[]) || [], 
           args?.limit as number
@@ -818,14 +818,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(batchSearchResult, null, 2) }]
         };
 
-      case 'system.cache-stats':
+      case 'system_cache_stats':
         const { cacheManager } = await import('./utils/cache');
         const cacheStats = cacheManager.getAllStats();
         return {
           content: [{ type: 'text', text: JSON.stringify(cacheStats, null, 2) }]
         };
 
-      case 'system.retry-stats':
+      case 'system_retry_stats':
         const { retryManager } = await import('./utils/retry');
         const retryStats = retryManager.getStats();
         return {

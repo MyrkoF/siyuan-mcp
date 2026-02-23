@@ -43,11 +43,11 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 ### Blocks
 | Tool | Description |
 |------|-------------|
-| `blocks.get` | Get block content (kramdown) |
-| `blocks.create` | Insert a new block |
-| `blocks.update` | Update a block |
-| `blocks.delete` | Delete a block |
-| `blocks.move` | Move a block to a new position |
+| `blocks_get` | Get block content (kramdown) |
+| `blocks_create` | Insert a new block |
+| `blocks_update` | Update a block |
+| `blocks_delete` | Delete a block |
+| `blocks_move` | Move a block to a new position |
 | `batch_create_blocks` | Batch create multiple blocks |
 | `batch_update_blocks` | Batch update multiple blocks |
 | `batch_delete_blocks` | Batch delete multiple blocks |
@@ -80,18 +80,18 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 ### Assets
 | Tool | Description |
 |------|-------------|
-| `assets.upload` | Upload a file to the workspace |
-| `assets.list` | List assets attached to a document |
-| `assets.unused` | Find unused asset files |
-| `assets.missing` | Find missing asset files |
-| `assets.rename` | Rename an asset |
-| `assets.ocr` | OCR text recognition on an image |
+| `assets_upload` | Upload a file to the workspace |
+| `assets_list` | List assets attached to a document |
+| `assets_unused` | Find unused asset files |
+| `assets_missing` | Find missing asset files |
+| `assets_rename` | Rename an asset |
+| `assets_ocr` | OCR text recognition on an image |
 
 ### System
 | Tool | Description |
 |------|-------------|
-| `system.health` | Check SiYuan connection status |
-| `system.discover-ports` | Auto-discover the SiYuan port |
+| `system_health` | Check SiYuan connection status |
+| `system_discover_ports` | Auto-discover the SiYuan port |
 
 ---
 
@@ -366,7 +366,7 @@ doc_move(fromIds: ["doc-1", "doc-2"], toId: "target-id")
 
 **Database IDs:** use `av_list_databases` — returns all database IDs and names.
 **Column IDs (keyIDs):** returned by `av_render_database` in the `columns` array.
-**Document IDs:** use `search_content`, `docs.list`, or right-click a document in SiYuan → **Copy block ID**.
+**Document IDs:** use `search_content`, `docs_list`, or right-click a document in SiYuan → **Copy block ID**.
 **Notebook IDs:** use `list_notebooks`.
 
 ---

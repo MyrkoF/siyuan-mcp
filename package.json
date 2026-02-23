@@ -1,6 +1,6 @@
 {
   "name": "siyuan-query-mcp",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Model Context Protocol server for SiYuan Note — full Attribute View database support, universal HTTP-only deployment",
   "main": "dist/index.js",
   "bin": {
