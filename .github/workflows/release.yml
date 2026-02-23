@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 permissions:
   contents: write
@@ -11,9 +11,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -23,6 +22,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          registry-url: https://registry.npmjs.org/
 
       - name: Install dependencies
         run: npm ci
@@ -30,61 +30,44 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package build artifacts
+      - name: Get version
+        id: version
         run: |
-          cd dist
-          zip -r ../siyuan-query-mcp-${GITHUB_REF#refs/tags/}.zip .
-          cd ..
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Generate release notes
-        id: release_notes
+      - name: Generate changelog
+        id: changelog
         run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          VERSION=${TAG_NAME#v}
-
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
           if [ -z "$PREVIOUS_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"- %s" --no-merges | head -20)
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
           else
-            COMMITS=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
           fi
-
-          cat > release_notes.md << EOF
-          ## 🚀 SiYuan Query MCP ${VERSION}
-
-          ### Changes
-          ${COMMITS}
-
-          ### Installation
-
-          \`\`\`json
-          {
-            "mcpServers": {
-              "siyuan": {
-                "command": "npx",
-                "args": ["-y", "siyuan-query-mcp@latest"],
-                "env": {
-                  "SIYUAN_API_TOKEN": "your-api-token"
-                }
-              }
-            }
-          }
-          \`\`\`
-
-          ### Links
-          - [Documentation](https://github.com/${GITHUB_REPOSITORY}/blob/main/README.md)
-          - [Changelog](https://github.com/${GITHUB_REPOSITORY}/releases)
-          EOF
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ github.ref_name }}
-          body_path: release_notes.md
-          files: |
-            siyuan-query-mcp-${{ github.ref_name }}.zip
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## 🚀 SiYuan MCP Server ${{ steps.version.outputs.version }}
+
+            ### Changes
+            ${{ steps.changelog.outputs.changelog }}
+
+            ---
+            **Docs**: [README.md](https://github.com/${{ github.repository }}/blob/main/README.md)
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
