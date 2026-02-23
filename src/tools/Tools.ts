@@ -15,6 +15,7 @@ import { AttributeViewService } from '../services/av-service';
 
 import { ReferenceService } from '../services/reference-service';
 import { AdvancedSearchService } from '../services/advanced-search-service';
+import { DocService } from '../services/doc-service';
 
 // 创建客户端实例 — env vars résolues dans createSiyuanClient()
 const siyuanClient = createSiyuanClient({
@@ -63,6 +64,7 @@ export class MergedTools {
   private batchService: BatchService;
   private tagService: TagService;
   private avService: AttributeViewService;
+  private docService: DocService;
 
   private referenceService: ReferenceService;
   private searchService: AdvancedSearchService;
@@ -72,6 +74,7 @@ export class MergedTools {
     this.batchService = new BatchService(client);
     this.tagService = new TagService(client);
     this.avService = new AttributeViewService(client);
+    this.docService = new DocService(client);
 
     this.referenceService = new ReferenceService(client);
     this.searchService = new AdvancedSearchService(client);
@@ -445,6 +448,74 @@ export class MergedTools {
         }
       },
 
+      // ==================== Document CRUD ====================
+      {
+        name: 'doc_get',
+        description: 'Lit le contenu Markdown d\'un document SiYuan par son ID. Retourne le contenu propre et le chemin lisible (hPath).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Block ID du document (root ID). Obtenu via list_notebooks, docs.list, search_content, etc.'
+            }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'doc_rename',
+        description: 'Renomme un document SiYuan par son ID.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Block ID du document à renommer'
+            },
+            title: {
+              type: 'string',
+              description: 'Nouveau titre du document'
+            }
+          },
+          required: ['id', 'title']
+        }
+      },
+      {
+        name: 'doc_delete',
+        description: 'Supprime (envoie dans la corbeille) un document SiYuan par son ID. Opération irréversible — demander confirmation avant d\'appeler.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Block ID du document à supprimer'
+            }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'doc_move',
+        description: 'Déplace un ou plusieurs documents SiYuan vers un nouveau parent (document ou notebook).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            fromIds: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'IDs des documents à déplacer (au moins 1)',
+              minItems: 1
+            },
+            toId: {
+              type: 'string',
+              description: 'ID du document parent cible OU ID du notebook cible (destination)'
+            }
+          },
+          required: ['fromIds', 'toId']
+        }
+      },
+
       // ==================== Attribute View (Database) Tools ====================
       {
         name: 'av_list_databases',
@@ -702,6 +773,19 @@ export class MergedTools {
 
         case 'batch_read_all_documents':
           return await this.client.batchReadAllDocuments(args.notebookId, args.options);
+
+        // ==================== Document CRUD ====================
+        case 'doc_get':
+          return await this.handleDocGet(args.id);
+
+        case 'doc_rename':
+          return await this.handleDocRename(args.id, args.title);
+
+        case 'doc_delete':
+          return await this.handleDocDelete(args.id);
+
+        case 'doc_move':
+          return await this.handleDocMove(args.fromIds, args.toId);
 
         // ==================== Attribute View (Database) ====================
         case 'av_list_databases':
@@ -1034,6 +1118,60 @@ export class MergedTools {
         { title, notebook, parentPath },
         error?.message || '未知错误'
       );
+    }
+  }
+
+  // ==================== Document CRUD implementations ====================
+
+  private async handleDocGet(id: string): Promise<StandardResponse> {
+    try {
+      if (!id?.trim()) {
+        return createStandardResponse(false, 'Paramètre manquant', null, 'id est requis');
+      }
+      const doc = await this.docService.getDocument(id);
+      return createStandardResponse(true, `Document "${doc.hPath}" lu (${doc.content.length} caractères)`, doc);
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la lecture du document', null, error?.message);
+    }
+  }
+
+  private async handleDocRename(id: string, title: string): Promise<StandardResponse> {
+    try {
+      if (!id?.trim() || !title?.trim()) {
+        return createStandardResponse(false, 'Paramètres manquants', null, 'id et title sont requis');
+      }
+      await this.docService.renameDocument(id, title);
+      return createStandardResponse(true, `Document renommé en "${title}"`, { id, title });
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors du renommage', null, error?.message);
+    }
+  }
+
+  private async handleDocDelete(id: string): Promise<StandardResponse> {
+    try {
+      if (!id?.trim()) {
+        return createStandardResponse(false, 'Paramètre manquant', null, 'id est requis');
+      }
+      await this.docService.deleteDocument(id);
+      return createStandardResponse(true, `Document ${id} supprimé`, { id });
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la suppression', null, error?.message);
+    }
+  }
+
+  private async handleDocMove(fromIds: string[], toId: string): Promise<StandardResponse> {
+    try {
+      if (!fromIds?.length || !toId?.trim()) {
+        return createStandardResponse(false, 'Paramètres manquants', null, 'fromIds et toId sont requis');
+      }
+      await this.docService.moveDocuments(fromIds, toId);
+      return createStandardResponse(
+        true,
+        `${fromIds.length} document(s) déplacé(s) vers ${toId}`,
+        { fromIds, toId, count: fromIds.length }
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors du déplacement', null, error?.message);
     }
   }
 

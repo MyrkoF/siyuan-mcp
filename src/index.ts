@@ -971,6 +971,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'search_by_date_range':
       case 'recursive_search_notes':
       case 'batch_read_all_documents':
+      case 'doc_get':
+      case 'doc_rename':
+      case 'doc_delete':
+      case 'doc_move':
       case 'av_list_databases':
       case 'av_render_database':
       case 'av_create_row':
