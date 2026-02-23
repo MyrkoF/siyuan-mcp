@@ -133,6 +133,33 @@ export class AttributeViewService {
   }
 
   /**
+   * Supprime une ou plusieurs lignes d'une database via
+   * /api/av/removeAttributeViewBlocks.
+   *
+   * @param avId     — Block ID de la database
+   * @param rowIds   — IDs des lignes à supprimer (au moins 1)
+   */
+  async deleteRows(avId: string, rowIds: string[]): Promise<void> {
+    if (!avId || avId.trim() === '') {
+      throw new Error('avId est requis');
+    }
+    if (!rowIds || rowIds.length === 0) {
+      throw new Error('Au moins un rowId est requis');
+    }
+
+    const response = await this.client.request('/api/av/removeAttributeViewBlocks', {
+      avID: avId.trim(),
+      srcIDs: rowIds
+    });
+
+    if (!response || response.code !== 0) {
+      throw new Error(
+        `Suppression échouée: ${response?.msg ?? 'erreur inconnue'}`
+      );
+    }
+  }
+
+  /**
    * Met à jour la valeur d'une cellule via /api/av/setAttributeViewBlockAttr.
    */
   async updateRow(

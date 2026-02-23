@@ -475,6 +475,25 @@ export class MergedTools {
         }
       },
       {
+        name: 'av_delete_row',
+        description: 'Supprime une ou plusieurs lignes d\'une database Attribute View. Opération irréversible.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: {
+              type: 'string',
+              description: 'ID de la database (Attribute View block ID)'
+            },
+            rowIds: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'IDs des lignes à supprimer (au moins 1). Obtenir les IDs via av_render_database.'
+            }
+          },
+          required: ['avId', 'rowIds']
+        }
+      },
+      {
         name: 'av_update_row',
         description: 'Met à jour la valeur d\'une cellule dans une database Attribute View via /api/av/setAttributeViewBlockAttr.',
         inputSchema: {
@@ -680,6 +699,9 @@ export class MergedTools {
 
         case 'av_create_row':
           return await this.handleAvCreateRow(args.avId, args.name, args.values);
+
+        case 'av_delete_row':
+          return await this.handleAvDeleteRow(args.avId, args.rowIds);
 
         case 'av_update_row':
           return await this.handleAvUpdateRow(args.avId, args.rowId, args.keyId, args.value);
@@ -1055,6 +1077,25 @@ export class MergedTools {
       );
     } catch (error: any) {
       return createStandardResponse(false, 'Erreur lors de la création de la ligne', null, error?.message);
+    }
+  }
+
+  private async handleAvDeleteRow(avId: string, rowIds: string[]): Promise<StandardResponse> {
+    try {
+      if (!avId || !rowIds || rowIds.length === 0) {
+        return createStandardResponse(
+          false, 'Paramètres manquants', null,
+          'avId et rowIds (tableau non vide) sont requis'
+        );
+      }
+      await this.avService.deleteRows(avId, rowIds);
+      return createStandardResponse(
+        true,
+        `${rowIds.length} ligne(s) supprimée(s) avec succès`,
+        { avId, deletedRowIds: rowIds, count: rowIds.length }
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la suppression', null, error?.message);
     }
   }
 
