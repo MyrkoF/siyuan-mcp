@@ -14,6 +14,7 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 | `av_list_databases` | List all Attribute View databases in the workspace (name, column count, row count) |
 | `av_render_database` | Read a full database: all columns (with types) and all rows (with parsed cell values) |
 | `av_create_row` | Create a new detached row with an optional name and initial cell values |
+| `av_delete_row` | Delete one or more rows from a database by row ID |
 | `av_update_row` | Update a single cell in a database row |
 | `av_query_database` | Filter rows by column name/value (partial match, case-insensitive) |
 
