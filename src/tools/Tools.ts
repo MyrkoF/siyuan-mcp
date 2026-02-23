@@ -89,7 +89,7 @@ export class MergedTools {
       // ==================== 标准工具 ====================
       {
         name: 'list_notebooks',
-        description: '列出所有思源笔记本',
+        description: 'List all SiYuan notebooks',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -98,51 +98,51 @@ export class MergedTools {
       },
       {
         name: 'create_document',
-        description: '在指定笔记本中创建新文档',
+        description: 'Create a new document in a notebook',
         inputSchema: {
           type: 'object',
           properties: {
-            notebook: { type: 'string', description: '笔记本ID' },
-            title: { type: 'string', description: '文档标题' },
-            content: { type: 'string', description: '文档内容（Markdown格式）' }
+            notebook: { type: 'string', description: 'Notebook ID' },
+            title: { type: 'string', description: 'Document title' },
+            content: { type: 'string', description: 'Document content (Markdown)' }
           },
           required: ['notebook', 'title', 'content']
         }
       },
       {
         name: 'search_content',
-        description: '搜索思源笔记内容',
+        description: 'Full-text keyword search across SiYuan notes',
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: '搜索关键词' },
-            limit: { type: 'number', description: '返回结果数量限制', default: 10 }
+            query: { type: 'string', description: 'Search keyword' },
+            limit: { type: 'number', description: 'Maximum number of results to return', default: 10 }
           },
           required: ['query']
         }
       },
       {
         name: 'create_notebook',
-        description: '创建新的思源笔记本',
+        description: 'Create a new SiYuan notebook',
         inputSchema: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: '笔记本名称' },
-            icon: { type: 'string', description: '笔记本图标', default: '📔' }
+            name: { type: 'string', description: 'Notebook name' },
+            icon: { type: 'string', description: 'Notebook icon', default: '📔' }
           },
           required: ['name']
         }
       },
       {
         name: 'create_subdocument',
-        description: '在指定文档下创建子文档',
+        description: 'Create a child document under a parent document',
         inputSchema: {
           type: 'object',
           properties: {
-            notebook: { type: 'string', description: '笔记本ID' },
-            parentPath: { type: 'string', description: '父文档路径' },
-            title: { type: 'string', description: '子文档标题' },
-            content: { type: 'string', description: '子文档内容（Markdown格式）', default: '' }
+            notebook: { type: 'string', description: 'Notebook ID' },
+            parentPath: { type: 'string', description: 'Parent document path' },
+            title: { type: 'string', description: 'Child document title' },
+            content: { type: 'string', description: 'Child document content (Markdown)', default: '' }
           },
           required: ['notebook', 'parentPath', 'title']
         }
@@ -151,7 +151,7 @@ export class MergedTools {
       // ==================== 增强API工具 ====================
       {
         name: 'batch_create_blocks',
-        description: '批量创建多个块，提升创建效率',
+        description: 'Batch create multiple blocks',
         inputSchema: {
           type: 'object',
           properties: {
@@ -160,13 +160,13 @@ export class MergedTools {
               items: {
                 type: 'object',
                 properties: {
-                  content: { type: 'string', description: '块内容（Markdown格式）' },
-                  parentID: { type: 'string', description: '父块ID（可选）' },
-                  previousID: { type: 'string', description: '前一个块ID（可选）' }
+                  content: { type: 'string', description: 'Block content (Markdown)' },
+                  parentID: { type: 'string', description: 'Parent block ID (optional)' },
+                  previousID: { type: 'string', description: 'Previous sibling block ID (optional)' }
                 },
                 required: ['content']
               },
-              description: '批量创建请求列表'
+              description: 'List of batch create requests'
             }
           },
           required: ['requests']
@@ -174,7 +174,7 @@ export class MergedTools {
       },
       {
         name: 'batch_update_blocks',
-        description: '批量更新多个块的内容',
+        description: 'Batch update multiple blocks',
         inputSchema: {
           type: 'object',
           properties: {
@@ -183,12 +183,12 @@ export class MergedTools {
               items: {
                 type: 'object',
                 properties: {
-                  id: { type: 'string', description: '块ID' },
-                  content: { type: 'string', description: '新内容（Markdown格式）' }
+                  id: { type: 'string', description: 'Block ID' },
+                  content: { type: 'string', description: 'New content (Markdown)' }
                 },
                 required: ['id', 'content']
               },
-              description: '批量更新请求列表'
+              description: 'List of batch update requests'
             }
           },
           required: ['requests']
@@ -196,14 +196,14 @@ export class MergedTools {
       },
       {
         name: 'batch_delete_blocks',
-        description: '批量删除多个块',
+        description: 'Batch delete multiple blocks',
         inputSchema: {
           type: 'object',
           properties: {
             blockIds: {
               type: 'array',
               items: { type: 'string' },
-              description: '要删除的块ID列表'
+              description: 'List of block IDs to delete'
             }
           },
           required: ['blockIds']
@@ -211,20 +211,20 @@ export class MergedTools {
       },
       {
         name: 'get_all_tags',
-        description: '获取所有标签及其使用统计',
+        description: 'Get all tags with usage statistics',
         inputSchema: {
           type: 'object',
           properties: {
             sortBy: {
               type: 'string',
               enum: ['name', 'count', 'created'],
-              description: '排序方式',
+              description: 'Sort field',
               default: 'count'
             },
             sortOrder: {
               type: 'string',
               enum: ['asc', 'desc'],
-              description: '排序顺序',
+              description: 'Sort order',
               default: 'desc'
             }
           },
@@ -233,32 +233,32 @@ export class MergedTools {
       },
       {
         name: 'search_tags',
-        description: '根据关键词搜索标签',
+        description: 'Search tags by keyword',
         inputSchema: {
           type: 'object',
           properties: {
-            keyword: { type: 'string', description: '搜索关键词' },
-            limit: { type: 'number', description: '返回结果数量限制', default: 20 }
+            keyword: { type: 'string', description: 'Search keyword' },
+            limit: { type: 'number', description: 'Maximum number of results to return', default: 20 }
           },
           required: ['keyword']
         }
       },
       {
         name: 'manage_block_tags',
-        description: '批量管理块的标签（添加、移除、替换）',
+        description: 'Add, remove, or replace tags on a block',
         inputSchema: {
           type: 'object',
           properties: {
-            blockId: { type: 'string', description: '块ID' },
+            blockId: { type: 'string', description: 'Block ID' },
             operation: {
               type: 'string',
               enum: ['add', 'remove', 'replace'],
-              description: '操作类型'
+              description: 'Operation type: "add", "remove", or "replace"'
             },
             tags: {
               type: 'array',
               items: { type: 'string' },
-              description: '标签列表'
+              description: 'List of tags'
             }
           },
           required: ['blockId', 'operation', 'tags']
@@ -266,52 +266,52 @@ export class MergedTools {
       },
       {
         name: 'get_block_tags',
-        description: '获取指定块的所有标签',
+        description: 'Get all tags attached to a specific block',
         inputSchema: {
           type: 'object',
           properties: {
-            blockId: { type: 'string', description: '块ID' }
+            blockId: { type: 'string', description: 'Block ID' }
           },
           required: ['blockId']
         }
       },
       {
         name: 'get_block_references',
-        description: '获取块的完整引用关系图谱',
+        description: 'Get the full reference graph for a block',
         inputSchema: {
           type: 'object',
           properties: {
-            blockId: { type: 'string', description: '块ID' },
-            includeBacklinks: { type: 'boolean', description: '是否包含反向链接', default: true },
-            maxDepth: { type: 'number', description: '最大深度', default: 3 }
+            blockId: { type: 'string', description: 'Block ID' },
+            includeBacklinks: { type: 'boolean', description: 'Include backlinks', default: true },
+            maxDepth: { type: 'number', description: 'Maximum depth', default: 3 }
           },
           required: ['blockId']
         }
       },
       {
         name: 'get_backlinks',
-        description: '获取块的反向链接（入链）',
+        description: 'Get backlinks (incoming references) for a block',
         inputSchema: {
           type: 'object',
           properties: {
-            blockId: { type: 'string', description: '块ID' },
-            includeContent: { type: 'boolean', description: '是否包含内容', default: true }
+            blockId: { type: 'string', description: 'Block ID' },
+            includeContent: { type: 'boolean', description: 'Include content', default: true }
           },
           required: ['blockId']
         }
       },
       {
         name: 'create_reference',
-        description: '在两个块之间创建引用链接',
+        description: 'Create a reference link between two blocks',
         inputSchema: {
           type: 'object',
           properties: {
-            sourceBlockId: { type: 'string', description: '源块ID' },
-            targetBlockId: { type: 'string', description: '目标块ID' },
+            sourceBlockId: { type: 'string', description: 'Source block ID' },
+            targetBlockId: { type: 'string', description: 'Target block ID' },
             referenceType: {
               type: 'string',
               enum: ['link', 'embed', 'mention'],
-              description: '引用类型',
+              description: 'Reference type',
               default: 'link'
             }
           },
@@ -320,107 +320,107 @@ export class MergedTools {
       },
       {
         name: 'advanced_search',
-        description: '执行多条件组合的高级搜索',
+        description: 'Advanced multi-criteria search (tags, date range, block type)',
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: '搜索查询' },
-            notebook: { type: 'string', description: '笔记本ID（可选）' },
+            query: { type: 'string', description: 'Search query' },
+            notebook: { type: 'string', description: 'Notebook ID (optional)' },
             tags: {
               type: 'array',
               items: { type: 'string' },
-              description: '标签过滤（可选）'
+              description: 'Tag filter (optional)'
             },
             dateRange: {
               type: 'object',
               properties: {
-                start: { type: 'string', description: '开始日期 (YYYY-MM-DD)' },
-                end: { type: 'string', description: '结束日期 (YYYY-MM-DD)' }
+                start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
               },
-              description: '日期范围过滤（可选）'
+              description: 'Date range filter (optional)'
             },
             blockType: {
               type: 'string',
               enum: ['paragraph', 'heading', 'list', 'code', 'table'],
-              description: '块类型过滤（可选）'
+              description: 'Block type filter (optional)'
             },
-            limit: { type: 'number', description: '返回结果数量限制', default: 50 }
+            limit: { type: 'number', description: 'Maximum number of results to return', default: 50 }
           },
           required: ['query']
         }
       },
       {
         name: 'quick_text_search',
-        description: '快速文本搜索，简化的搜索接口',
+        description: 'Quick text search with case-sensitivity and whole-word options',
         inputSchema: {
           type: 'object',
           properties: {
-            text: { type: 'string', description: '搜索文本' },
-            caseSensitive: { type: 'boolean', description: '是否区分大小写', default: false },
-            wholeWord: { type: 'boolean', description: '是否全词匹配', default: false },
-            limit: { type: 'number', description: '返回结果数量限制', default: 20 }
+            text: { type: 'string', description: 'Text to search for' },
+            caseSensitive: { type: 'boolean', description: 'Case-sensitive search', default: false },
+            wholeWord: { type: 'boolean', description: 'Whole-word match', default: false },
+            limit: { type: 'number', description: 'Maximum number of results to return', default: 20 }
           },
           required: ['text']
         }
       },
       {
         name: 'search_by_tags',
-        description: '根据标签搜索相关内容',
+        description: 'Search content by one or multiple tags',
         inputSchema: {
           type: 'object',
           properties: {
             tags: {
               type: 'array',
               items: { type: 'string' },
-              description: '标签列表'
+              description: 'List of tags'
             },
             matchMode: {
               type: 'string',
               enum: ['any', 'all'],
-              description: '匹配模式：any-任意标签，all-所有标签',
+              description: 'Match mode: "any" (any tag matches) or "all" (all tags must match)',
               default: 'any'
             },
-            limit: { type: 'number', description: '返回结果数量限制', default: 30 }
+            limit: { type: 'number', description: 'Maximum number of results to return', default: 30 }
           },
           required: ['tags']
         }
       },
       {
         name: 'search_by_date_range',
-        description: '根据日期范围搜索内容',
+        description: 'Search content by creation or modification date range',
         inputSchema: {
           type: 'object',
           properties: {
-            startDate: { type: 'string', description: '开始日期 (YYYY-MM-DD)' },
-            endDate: { type: 'string', description: '结束日期 (YYYY-MM-DD)' },
+            startDate: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+            endDate: { type: 'string', description: 'End date (YYYY-MM-DD)' },
             dateType: {
               type: 'string',
               enum: ['created', 'updated'],
-              description: '日期类型',
+              description: 'Date type: "created" or "updated"',
               default: 'updated'
             },
-            limit: { type: 'number', description: '返回结果数量限制', default: 50 }
+            limit: { type: 'number', description: 'Maximum number of results to return', default: 50 }
           },
           required: ['startDate', 'endDate']
         }
       },
       {
         name: 'recursive_search_notes',
-        description: '递归搜索笔记，支持深度搜索和模糊匹配',
+        description: 'Deep recursive search with optional fuzzy matching',
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: '搜索查询' },
-            notebook: { type: 'string', description: '笔记本ID（可选）' },
+            query: { type: 'string', description: 'Search query' },
+            notebook: { type: 'string', description: 'Notebook ID (optional)' },
             options: {
               type: 'object',
               properties: {
-                maxDepth: { type: 'number', description: '最大搜索深度', default: 3 },
-                includeContent: { type: 'boolean', description: '是否包含内容', default: true },
-                fuzzyMatch: { type: 'boolean', description: '是否启用模糊匹配', default: false },
-                limit: { type: 'number', description: '返回结果数量限制', default: 50 }
+                maxDepth: { type: 'number', description: 'Maximum search depth', default: 3 },
+                includeContent: { type: 'boolean', description: 'Include content', default: true },
+                fuzzyMatch: { type: 'boolean', description: 'Enable fuzzy matching', default: false },
+                limit: { type: 'number', description: 'Maximum number of results to return', default: 50 }
               },
-              description: '搜索选项（可选）'
+              description: 'Search options (optional)'
             }
           },
           required: ['query']
@@ -428,20 +428,20 @@ export class MergedTools {
       },
       {
         name: 'batch_read_all_documents',
-        description: '批量读取指定笔记本中的所有文档',
+        description: 'Batch-read all documents in a notebook',
         inputSchema: {
           type: 'object',
           properties: {
-            notebookId: { type: 'string', description: '笔记本ID' },
+            notebookId: { type: 'string', description: 'Notebook ID' },
             options: {
               type: 'object',
               properties: {
-                maxDepth: { type: 'number', description: '最大读取深度', default: 2 },
-                includeContent: { type: 'boolean', description: '是否包含文档内容', default: false },
-                batchSize: { type: 'number', description: '批处理大小', default: 10 },
-                delay: { type: 'number', description: '批次间延迟(ms)', default: 100 }
+                maxDepth: { type: 'number', description: 'Maximum read depth', default: 2 },
+                includeContent: { type: 'boolean', description: 'Include document content', default: false },
+                batchSize: { type: 'number', description: 'Batch size', default: 10 },
+                delay: { type: 'number', description: 'Delay between batches (ms)', default: 100 }
               },
-              description: '读取选项（可选）'
+              description: 'Read options (optional)'
             }
           },
           required: ['notebookId']
@@ -457,7 +457,7 @@ export class MergedTools {
           properties: {
             id: {
               type: 'string',
-              description: 'Block ID du document (root ID). Obtenu via list_notebooks, docs.list, search_content, etc.'
+              description: 'Document block ID (root ID). Obtained via list_notebooks, search_content, etc.'
             }
           },
           required: ['id']
@@ -465,17 +465,17 @@ export class MergedTools {
       },
       {
         name: 'doc_rename',
-        description: 'Renomme un document SiYuan par son ID.',
+        description: 'Rename a SiYuan document by ID.',
         inputSchema: {
           type: 'object',
           properties: {
             id: {
               type: 'string',
-              description: 'Block ID du document à renommer'
+              description: 'Document block ID to rename'
             },
             title: {
               type: 'string',
-              description: 'Nouveau titre du document'
+              description: 'New document title'
             }
           },
           required: ['id', 'title']
@@ -483,17 +483,17 @@ export class MergedTools {
       },
       {
         name: 'doc_delete',
-        description: 'Supprime (envoie dans la corbeille SiYuan) un document par son ID. Par défaut REFUSE si le document a des enfants et retourne leur liste. Passer cascade:true pour supprimer récursivement. Tout va en corbeille (récupérable).',
+        description: 'Delete a document (sends to SiYuan trash). Refuses if children exist unless cascade:true. Everything goes to trash (recoverable).',
         inputSchema: {
           type: 'object',
           properties: {
             id: {
               type: 'string',
-              description: 'Block ID du document à supprimer'
+              description: 'Document block ID to delete'
             },
             cascade: {
               type: 'boolean',
-              description: 'false (défaut) : refus si des enfants existent, retourne leur liste. true : supprime tous les enfants depth-first puis le parent. Tout va en corbeille SiYuan.'
+              description: 'false (default): refuse if children exist and return their list. true: delete all children depth-first then parent. All goes to trash.'
             }
           },
           required: ['id']
@@ -501,19 +501,19 @@ export class MergedTools {
       },
       {
         name: 'doc_move',
-        description: 'Déplace un ou plusieurs documents SiYuan vers un nouveau parent (document ou notebook).',
+        description: 'Move one or more SiYuan documents to a new parent (document or notebook).',
         inputSchema: {
           type: 'object',
           properties: {
             fromIds: {
               type: 'array',
               items: { type: 'string' },
-              description: 'IDs des documents à déplacer (au moins 1)',
+              description: 'IDs of documents to move (at least 1)',
               minItems: 1
             },
             toId: {
               type: 'string',
-              description: 'ID du document parent cible OU ID du notebook cible (destination)'
+              description: 'Target parent document ID or target notebook ID (destination)'
             }
           },
           required: ['fromIds', 'toId']
@@ -523,13 +523,13 @@ export class MergedTools {
       // ==================== Attribute View (Database) Tools ====================
       {
         name: 'av_list_databases',
-        description: 'Liste toutes les databases SiYuan Attribute Views disponibles avec nom, nombre de colonnes et de lignes.',
+        description: 'List all Attribute View databases in the workspace (name, column count, row count).',
         inputSchema: {
           type: 'object',
           properties: {
             nameFilter: {
               type: 'string',
-              description: 'Filtre par préfixe de nom, insensible à la casse (ex: "DB-" pour ne voir que les databases nommées DB-*)'
+              description: 'Optional name prefix filter, case-insensitive (e.g. "DB-" to see only databases named DB-*)'
             }
           },
           required: []
@@ -537,13 +537,13 @@ export class MergedTools {
       },
       {
         name: 'av_render_database',
-        description: 'Lit une database SiYuan Attribute View complète (colonnes + lignes). Utilise /api/av/renderAttributeView.',
+        description: 'Read a full Attribute View database: all columns (with types) and all rows (with parsed values).',
         inputSchema: {
           type: 'object',
           properties: {
             id: {
               type: 'string',
-              description: 'ID de la database (Attribute View block ID), ex: 20251215105701-op0w1p9'
+              description: 'Database ID (Attribute View block ID), e.g. 20251215105701-op0w1p9'
             }
           },
           required: ['id']
@@ -557,12 +557,12 @@ export class MergedTools {
           properties: {
             avId: {
               type: 'string',
-              description: 'ID de la database (Attribute View block ID)'
+              description: 'Database ID (Attribute View block ID)'
             },
             rowIds: {
               type: 'array',
               items: { type: 'string' },
-              description: 'IDs des lignes à supprimer (au moins 1). Obtenir les IDs via av_render_database.'
+              description: 'Row IDs to delete (at least 1). Get IDs from av_render_database.'
             }
           },
           required: ['avId', 'rowIds']
@@ -576,26 +576,26 @@ export class MergedTools {
           properties: {
             avId: {
               type: 'string',
-              description: 'ID de la database (Attribute View block ID)'
+              description: 'Database ID (Attribute View block ID)'
             },
             rowId: {
               type: 'string',
-              description: 'ID de la ligne à modifier (obtenu via av_render_database ou av_query_database)'
+              description: 'Row ID to update (from av_render_database or av_query_database)'
             },
             updates: {
               type: 'array',
-              description: 'Liste des cellules à mettre à jour (une ou plusieurs)',
+              description: 'List of cells to update (one or more)',
               items: {
                 type: 'object',
                 properties: {
-                  keyId: { type: 'string', description: 'ID de la colonne (keyID, obtenu via av_render_database)' },
+                  keyId: { type: 'string', description: 'Column ID (keyID, from av_render_database)' },
                   type: {
                     type: 'string',
                     enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'],
-                    description: 'Type de la colonne'
+                    description: 'Column type'
                   },
                   content: {
-                    description: 'Nouvelle valeur : string pour text/select/url/email/phone, number pour number/date (timestamp ms), boolean pour checkbox, string[] pour mSelect'
+                    description: 'New value: string for text/select/url/email/phone, number for number/date (timestamp ms), boolean for checkbox, string[] for mSelect'
                   }
                 },
                 required: ['keyId', 'type', 'content']
@@ -608,32 +608,32 @@ export class MergedTools {
       },
       {
         name: 'av_create_row',
-        description: 'Crée une nouvelle ligne (détachée) dans une database Attribute View. Retourne la ligne créée avec son ID et ses cellules.',
+        description: 'Create a new detached row in an Attribute View database. Returns the created row with its ID and cell values.',
         inputSchema: {
           type: 'object',
           properties: {
             avId: {
               type: 'string',
-              description: 'ID de la database (Attribute View block ID)'
+              description: 'Database ID (Attribute View block ID)'
             },
             name: {
               type: 'string',
-              description: 'Nom/titre de la nouvelle ligne (contenu de la colonne primaire "block"). Vide si omis.'
+              description: 'Name/title of the new row (primary "block" column content). Empty if omitted.'
             },
             values: {
               type: 'array',
-              description: 'Valeurs initiales optionnelles pour les autres colonnes',
+              description: 'Optional initial values for other columns',
               items: {
                 type: 'object',
                 properties: {
-                  keyId: { type: 'string', description: 'ID de la colonne (keyID, obtenu via av_render_database)' },
+                  keyId: { type: 'string', description: 'Column ID (keyID, from av_render_database)' },
                   type: {
                     type: 'string',
                     enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'],
-                    description: 'Type de la colonne'
+                    description: 'Column type'
                   },
                   content: {
-                    description: 'Valeur selon le type : string pour text/select/url/email/phone, number pour number/date (timestamp ms), boolean pour checkbox, string[] pour mSelect'
+                    description: 'Value by type: string for text/select/url/email/phone, number for number/date (ms timestamp), boolean for checkbox, string[] for mSelect'
                   }
                 },
                 required: ['keyId', 'type', 'content']
@@ -651,15 +651,15 @@ export class MergedTools {
           properties: {
             avId: {
               type: 'string',
-              description: 'ID de la database (Attribute View block ID)'
+              description: 'Database ID (Attribute View block ID)'
             },
             column: {
               type: 'string',
-              description: 'Nom ou ID de la colonne à filtrer (ex: "Status", "Area")'
+              description: 'Column name or ID to filter by (e.g. "Status", "Area")'
             },
             value: {
               type: 'string',
-              description: 'Valeur à rechercher (recherche partielle, insensible à la casse)'
+              description: 'Value to search for (partial match, case-insensitive)'
             }
           },
           required: ['avId', 'column', 'value']
@@ -673,23 +673,23 @@ export class MergedTools {
           properties: {
             notebookId: {
               type: 'string',
-              description: 'ID du notebook où créer la database (obtenu via list_notebooks)'
+              description: 'Notebook ID where the database will be created (from list_notebooks)'
             },
             name: {
               type: 'string',
-              description: 'Nom de la database (utilisé aussi comme titre du document)'
+              description: 'Database name (also used as the document title)'
             },
             columns: {
               type: 'array',
-              description: 'Colonnes supplémentaires optionnelles (la colonne primaire "Name" est toujours créée automatiquement)',
+              description: 'Optional additional columns (primary "Name" column is always created automatically)',
               items: {
                 type: 'object',
                 properties: {
-                  name: { type: 'string', description: 'Nom de la colonne' },
+                  name: { type: 'string', description: 'Column name' },
                   type: {
                     type: 'string',
                     enum: ['text','number','select','mSelect','date','checkbox','url','email','phone','mAsset','created','updated','lineNumber','template','rollup','relation'],
-                    description: 'Type de la colonne'
+                    description: 'Column type'
                   }
                 },
                 required: ['name', 'type']
@@ -913,8 +913,8 @@ export class MergedTools {
 
   /**
    * 创建文档 - 返回标准JSON格式
-   * @param notebook - 笔记本ID
-   * @param title - 文档标题
+   * @param notebook - Notebook ID
+   * @param title - Document title
    * @param content - 文档内容
    * @returns Promise<StandardResponse> - 返回创建结果的标准JSON响应
    * @throws Error - 当创建文档失败时抛出异常
@@ -925,9 +925,9 @@ export class MergedTools {
       if (!notebook || !title || content === undefined) {
         return createStandardResponse(
           false,
-          "参数验证失败",
+          "Parameter validation failed",
           { notebook, title, content: content?.substring(0, 50) + '...' },
-          "笔记本ID、标题和内容都是必需的"
+          "Notebook ID、标题和内容都是必需的"
         );
       }
 
@@ -939,12 +939,12 @@ export class MergedTools {
       });
 
       if (result && result.code === 0 && result.data) {
-        // API返回的data直接就是文档ID
+        // API返回的data直接就是Document ID
         const docId = result.data;
         
         return createStandardResponse(
           true,
-          "文档创建成功",
+          "Document created successfully",
           {
             id: docId,
             title: title,
@@ -975,8 +975,8 @@ export class MergedTools {
 
   /**
    * 搜索内容 - 返回标准JSON格式
-   * @param query - 搜索关键词
-   * @param limit - 返回结果数量限制
+   * @param query - Search keyword
+   * @param limit - Maximum number of results to return
    * @returns Promise<StandardResponse> - 返回搜索结果的标准JSON响应
    * @throws Error - 当搜索失败时抛出异常
    */
@@ -988,7 +988,7 @@ export class MergedTools {
           false,
           "搜索参数无效",
           { query, limit },
-          "搜索关键词不能为空"
+          "Search keyword不能为空"
         );
       }
 
@@ -1021,7 +1021,7 @@ export class MergedTools {
 
       return createStandardResponse(
         true,
-        `找到 ${processedResults.length} 条搜索结果`,
+        `Found ${processedResults.length} 条搜索结果`,
         {
           query: query.trim(),
           results: processedResults,
@@ -1043,8 +1043,8 @@ export class MergedTools {
 
   /**
    * 创建笔记本 - 返回标准JSON格式
-   * @param name - 笔记本名称
-   * @param icon - 笔记本图标
+   * @param name - Notebook name
+   * @param icon - Notebook icon
    * @returns Promise<StandardResponse> - 返回创建结果的标准JSON响应
    * @throws Error - 当创建笔记本失败时抛出异常
    */
@@ -1054,9 +1054,9 @@ export class MergedTools {
       if (!name || name.trim() === '') {
         return createStandardResponse(
           false,
-          "笔记本名称无效",
+          "Notebook name无效",
           { name, icon },
-          "笔记本名称不能为空"
+          "Notebook name不能为空"
         );
       }
 
@@ -1099,9 +1099,9 @@ export class MergedTools {
 
   /**
    * 创建子文档 - 返回标准JSON格式
-   * @param notebook - 笔记本ID
-   * @param parentPath - 父文档路径
-   * @param title - 子文档标题
+   * @param notebook - Notebook ID
+   * @param parentPath - Parent document path
+   * @param title - 子Document title
    * @param content - 子文档内容
    * @returns Promise<StandardResponse> - 返回创建结果的标准JSON响应
    * @throws Error - 当创建子文档失败时抛出异常
@@ -1112,13 +1112,13 @@ export class MergedTools {
       if (!notebook || !parentPath || !title) {
         return createStandardResponse(
           false,
-          "参数验证失败",
+          "Parameter validation failed",
           { notebook, parentPath, title },
-          "笔记本ID、父路径和标题都是必需的"
+          "Notebook ID、父路径和标题都是必需的"
         );
       }
 
-      // 构建子文档路径
+      // 构建子Document path
       const subDocPath = `${parentPath}/${title}`;
       
       // 使用正确的API创建子文档
@@ -1132,7 +1132,7 @@ export class MergedTools {
         const docId = result.data;
         return createStandardResponse(
           true,
-          "子文档创建成功",
+          "子Document created successfully",
           {
             id: docId,
             title: title,

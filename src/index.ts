@@ -47,7 +47,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'system_health',
-        description: '检查系统健康状态和思源笔记连接',
+        description: 'Check SiYuan connection status and server health',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -56,7 +56,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'system_discover_ports',
-        description: '自动发现思源笔记可用端口',
+        description: 'Auto-discover the SiYuan port (scans 6806–6808)',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -65,117 +65,117 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'blocks_get',
-        description: '获取指定ID的块内容',
+        description: 'Get block content (kramdown) by ID',
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: '块ID' }
+            id: { type: 'string', description: 'Block ID' }
           },
           required: ['id']
         }
       },
       {
         name: 'blocks_create',
-        description: '创建新的块',
+        description: 'Insert a new block',
         inputSchema: {
           type: 'object',
           properties: {
-            content: { type: 'string', description: '块内容（Markdown格式）' },
-            parentID: { type: 'string', description: '父块ID（可选）' },
-            previousID: { type: 'string', description: '前一个块ID（可选）' }
+            content: { type: 'string', description: 'Block content (Markdown)' },
+            parentID: { type: 'string', description: 'Parent block ID (optional)' },
+            previousID: { type: 'string', description: 'Previous sibling block ID (optional)' }
           },
           required: ['content']
         }
       },
       {
         name: 'blocks_update',
-        description: '更新块内容',
+        description: 'Update a block content by ID',
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: '块ID' },
-            content: { type: 'string', description: '新的块内容（Markdown格式）' }
+            id: { type: 'string', description: 'Block ID' },
+            content: { type: 'string', description: 'New block content (Markdown)' }
           },
           required: ['id', 'content']
         }
       },
       {
         name: 'blocks_delete',
-        description: '删除块',
+        description: 'Delete a block by ID',
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: '块ID' }
+            id: { type: 'string', description: 'Block ID' }
           },
           required: ['id']
         }
       },
       {
         name: 'blocks_move',
-        description: '移动块到新位置',
+        description: 'Move a block to a new position',
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: '块ID' },
-            parentID: { type: 'string', description: '新的父块ID' },
-            previousID: { type: 'string', description: '前一个块ID（可选）' }
+            id: { type: 'string', description: 'Block ID' },
+            parentID: { type: 'string', description: 'New parent block ID' },
+            previousID: { type: 'string', description: 'Previous sibling block ID (optional)' }
           },
           required: ['id', 'parentID']
         }
       },
       {
         name: 'docs_create',
-        description: '创建新文档',
+        description: 'Create a new document in a notebook',
         inputSchema: {
           type: 'object',
           properties: {
-            notebook: { type: 'string', description: '笔记本ID' },
-            path: { type: 'string', description: '文档路径' },
-            title: { type: 'string', description: '文档标题' },
-            content: { type: 'string', description: '文档内容（可选）' }
+            notebook: { type: 'string', description: 'Notebook ID' },
+            path: { type: 'string', description: 'Document path' },
+            title: { type: 'string', description: 'Document title' },
+            content: { type: 'string', description: 'Document content (optional)' }
           },
           required: ['notebook', 'path', 'title']
         }
       },
       {
         name: 'docs_list',
-        description: '列出文档',
+        description: 'List documents in a notebook by path',
         inputSchema: {
           type: 'object',
           properties: {
-            notebook: { type: 'string', description: '笔记本ID' },
-            path: { type: 'string', description: '路径（可选，默认为根路径）' }
+            notebook: { type: 'string', description: 'Notebook ID' },
+            path: { type: 'string', description: 'Path (optional, defaults to root)' }
           },
           required: ['notebook']
         }
       },
       {
         name: 'assets_upload',
-        description: '上传文件资源',
+        description: 'Upload a file asset to the workspace',
         inputSchema: {
           type: 'object',
           properties: {
-            file: { type: 'string', description: '文件路径或base64编码内容' },
-            assetsDirPath: { type: 'string', description: '资源目录路径' }
+            file: { type: 'string', description: 'File path or base64-encoded content' },
+            assetsDirPath: { type: 'string', description: 'Assets directory path' }
           },
           required: ['file', 'assetsDirPath']
         }
       },
       {
         name: 'assets_list',
-        description: '获取文档的资源文件列表',
+        description: 'List assets attached to a document',
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: '文档ID' },
-            type: { type: 'string', enum: ['all', 'images'], description: '资源类型', default: 'all' }
+            id: { type: 'string', description: 'Document ID' },
+            type: { type: 'string', enum: ['all', 'images'], description: 'Asset type: "all" or "images"', default: 'all' }
           },
           required: ['id']
         }
       },
       {
         name: 'assets_unused',
-        description: '获取未使用的资源文件',
+        description: 'Find unused asset files in the workspace',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -184,7 +184,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'assets_missing',
-        description: '获取缺失的资源文件',
+        description: 'Find missing (referenced but absent) asset files',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -193,148 +193,148 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'assets_rename',
-        description: '重命名资源文件',
+        description: 'Rename an asset file',
         inputSchema: {
           type: 'object',
           properties: {
-            oldPath: { type: 'string', description: '原路径' },
-            newPath: { type: 'string', description: '新路径' }
+            oldPath: { type: 'string', description: 'Original path' },
+            newPath: { type: 'string', description: 'New path' }
           },
           required: ['oldPath', 'newPath']
         }
       },
       {
         name: 'assets_ocr',
-        description: '对图片进行OCR识别',
+        description: 'OCR text recognition on an image asset',
         inputSchema: {
           type: 'object',
           properties: {
-            path: { type: 'string', description: '图片路径' }
+            path: { type: 'string', description: 'Image path' }
           },
           required: ['path']
         }
       },
       {
         name: 'context_session_create',
-        description: '创建新的会话上下文',
+        description: 'Create a new context session',
         inputSchema: {
           type: 'object',
           properties: {
-            userId: { type: 'string', description: '用户ID（可选）' }
+            userId: { type: 'string', description: 'User ID (optional)' }
           },
           required: []
         }
       },
       {
         name: 'context_session_get',
-        description: '获取会话上下文信息',
+        description: 'Get context session data',
         inputSchema: {
           type: 'object',
           properties: {
-            sessionId: { type: 'string', description: '会话ID' },
-            key: { type: 'string', description: '特定数据键（可选）' }
+            sessionId: { type: 'string', description: 'Session ID' },
+            key: { type: 'string', description: 'Specific data key (optional)' }
           },
           required: ['sessionId']
         }
       },
       {
         name: 'context_session_update',
-        description: '更新会话上下文数据',
+        description: 'Update context session data',
         inputSchema: {
           type: 'object',
           properties: {
-            sessionId: { type: 'string', description: '会话ID' },
-            key: { type: 'string', description: '数据键' },
-            value: { description: '数据值' }
+            sessionId: { type: 'string', description: 'Session ID' },
+            key: { type: 'string', description: 'Data key' },
+            value: { description: 'Data value' }
           },
           required: ['sessionId', 'key', 'value']
         }
       },
       {
         name: 'context_reference_add',
-        description: '添加引用到上下文',
+        description: 'Add a reference to a context session',
         inputSchema: {
           type: 'object',
           properties: {
-            sessionId: { type: 'string', description: '会话ID' },
-            type: { type: 'string', enum: ['block', 'document', 'selection'], description: '引用类型' },
-            id: { type: 'string', description: '引用ID' },
-            content: { type: 'string', description: '内容（选区类型必需）' },
-            metadata: { type: 'object', description: '元数据（可选）' }
+            sessionId: { type: 'string', description: 'Session ID' },
+            type: { type: 'string', enum: ['block', 'document', 'selection'], description: 'Reference type' },
+            id: { type: 'string', description: 'Reference ID' },
+            content: { type: 'string', description: 'Content (required for selection type)' },
+            metadata: { type: 'object', description: 'Metadata (optional)' }
           },
           required: ['sessionId', 'type', 'id']
         }
       },
       {
         name: 'context_reference_list',
-        description: '列出会话的引用上下文',
+        description: 'List references in a context session',
         inputSchema: {
           type: 'object',
           properties: {
-            sessionId: { type: 'string', description: '会话ID' },
-            type: { type: 'string', enum: ['block', 'document', 'selection'], description: '引用类型过滤（可选）' }
+            sessionId: { type: 'string', description: 'Session ID' },
+            type: { type: 'string', enum: ['block', 'document', 'selection'], description: 'Reference type filter (optional)' }
           },
           required: ['sessionId']
         }
       },
       {
         name: 'context_merge',
-        description: '合并会话上下文',
+        description: 'Merge context session data',
         inputSchema: {
           type: 'object',
           properties: {
-            sessionId: { type: 'string', description: '会话ID' },
-            strategy: { type: 'string', enum: ['recent', 'relevant', 'all'], description: '合并策略', default: 'recent' }
+            sessionId: { type: 'string', description: 'Session ID' },
+            strategy: { type: 'string', enum: ['recent', 'relevant', 'all'], description: 'Merge strategy', default: 'recent' }
           },
           required: ['sessionId']
         }
       },
       {
         name: 'context_summary',
-        description: '导出上下文摘要',
+        description: 'Export a context session summary',
         inputSchema: {
           type: 'object',
           properties: {
-            sessionId: { type: 'string', description: '会话ID' }
+            sessionId: { type: 'string', description: 'Session ID' }
           },
           required: ['sessionId']
         }
       },
       {
         name: 'resources_discover',
-        description: '发现可用的思源笔记资源',
+        description: 'Discover available SiYuan resources (documents, blocks, notebooks)',
         inputSchema: {
           type: 'object',
           properties: {
-            type: { type: 'string', enum: ['document', 'block', 'notebook'], description: '资源类型过滤' },
-            notebook: { type: 'string', description: '笔记本ID过滤' },
-            query: { type: 'string', description: '搜索查询' },
-            offset: { type: 'number', description: '分页偏移', default: 0 },
-            limit: { type: 'number', description: '返回数量限制', default: 50 },
-            sortBy: { type: 'string', enum: ['created', 'updated', 'name'], description: '排序字段', default: 'updated' },
-            sortOrder: { type: 'string', enum: ['asc', 'desc'], description: '排序顺序', default: 'desc' }
+            type: { type: 'string', enum: ['document', 'block', 'notebook'], description: 'Resource type filter' },
+            notebook: { type: 'string', description: 'Notebook ID filter (optional)' },
+            query: { type: 'string', description: 'Search query' },
+            offset: { type: 'number', description: 'Pagination offset', default: 0 },
+            limit: { type: 'number', description: 'Maximum results to return', default: 50 },
+            sortBy: { type: 'string', enum: ['created', 'updated', 'name'], description: 'Sort field', default: 'updated' },
+            sortOrder: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order', default: 'desc' }
           },
           required: []
         }
       },
       {
         name: 'resources_search',
-        description: '搜索思源笔记资源',
+        description: 'Search SiYuan resources by query string',
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: '搜索查询' },
-            type: { type: 'string', enum: ['document', 'block', 'notebook'], description: '资源类型过滤' },
-            notebook: { type: 'string', description: '笔记本ID过滤' },
-            offset: { type: 'number', description: '分页偏移', default: 0 },
-            limit: { type: 'number', description: '返回数量限制', default: 20 }
+            query: { type: 'string', description: 'Search query' },
+            type: { type: 'string', enum: ['document', 'block', 'notebook'], description: 'Resource type filter' },
+            notebook: { type: 'string', description: 'Notebook ID filter (optional)' },
+            offset: { type: 'number', description: 'Pagination offset', default: 0 },
+            limit: { type: 'number', description: 'Maximum results to return', default: 20 }
           },
           required: ['query']
         }
       },
       {
         name: 'resources_stats',
-        description: '获取资源统计信息',
+        description: 'Get resource statistics',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -343,7 +343,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'prompts_list',
-        description: '列出所有可用的提示模板',
+        description: 'List all available prompt templates',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -352,24 +352,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'prompts_get',
-        description: '获取指定的提示模板',
+        description: 'Get a prompt template by name with variable substitution',
         inputSchema: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: '提示模板名称' },
-            variables: { type: 'object', description: '模板变量' }
+            name: { type: 'string', description: 'Prompt template name' },
+            variables: { type: 'object', description: 'Template variables' }
           },
           required: ['name']
         }
       },
       {
         name: 'prompts_validate',
-        description: '验证提示模板变量',
+        description: 'Validate variables for a prompt template',
         inputSchema: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: '提示模板名称' },
-            variables: { type: 'object', description: '要验证的变量' }
+            name: { type: 'string', description: 'Prompt template name' },
+            variables: { type: 'object', description: 'Variables to validate' }
           },
           required: ['name', 'variables']
         }
@@ -379,7 +379,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       // 新增批量操作工具
       {
         name: 'batch_create_docs',
-        description: '批量创建文档',
+        description: 'Batch create multiple documents',
         inputSchema: {
           type: 'object',
           properties: {
@@ -388,14 +388,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               items: {
                 type: 'object',
                 properties: {
-                  notebook: { type: 'string', description: '笔记本ID' },
-                  path: { type: 'string', description: '文档路径' },
-                  title: { type: 'string', description: '文档标题' },
-                  content: { type: 'string', description: '文档内容（可选）' }
+                  notebook: { type: 'string', description: 'Notebook ID' },
+                  path: { type: 'string', description: 'Document path' },
+                  title: { type: 'string', description: 'Document title' },
+                  content: { type: 'string', description: 'Document content (optional)' }
                 },
                 required: ['notebook', 'path', 'title']
               },
-              description: '批量创建文档请求列表'
+              description: 'List of batch document create requests'
             }
           },
           required: ['requests']
@@ -403,23 +403,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'batch_search_queries',
-        description: '批量搜索查询',
+        description: 'Batch search (runs queries in parallel)',
         inputSchema: {
           type: 'object',
           properties: {
             queries: {
               type: 'array',
               items: { type: 'string' },
-              description: '搜索查询列表'
+              description: 'List of search queries'
             },
-            limit: { type: 'number', description: '每个查询的结果限制', default: 10 }
+            limit: { type: 'number', description: 'Result limit per query', default: 10 }
           },
           required: ['queries']
         }
       },
       {
         name: 'system_cache_stats',
-        description: '获取缓存统计信息',
+        description: 'Get cache statistics',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -428,7 +428,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'system_retry_stats',
-        description: '获取重试统计信息',
+        description: 'Get retry/resilience statistics',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -516,7 +516,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             success: true,
             operation: 'create_document',
             data: docCreateResult,
-            message: '文档创建成功',
+            message: 'Document created successfully',
             timestamp: new Date().toISOString()
           };
           
@@ -529,10 +529,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             operation: 'create_document',
             error: error.message,
             suggestions: [
-              '检查path参数格式（必须以/开头）',
-              '确认title参数不为空',
-              '验证思源笔记服务是否运行',
-              '检查笔记本ID是否有效'
+              'Check path format (must start with /)',
+              'Ensure title is not empty',
+              'Verify SiYuan service is running',
+              '检查Notebook ID是否有效'
             ],
             timestamp: new Date().toISOString()
           };
@@ -670,7 +670,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }]
         };
 
-      // 资源发现工具
+      // 资源Discovered工具
       case 'resources_discover':
         try {
           const discoverResult = await resourceDirectory.discoverResources(
@@ -695,7 +695,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 data: discoverResult.resources,
                 total: discoverResult.total,
                 hasMore: discoverResult.hasMore,
-                message: `发现 ${discoverResult.resources.length} 个资源`
+                message: `Discovered ${discoverResult.resources.length}  resources`
               }, null, 2) 
             }]
           };
@@ -706,7 +706,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify({
                 success: false,
                 data: [],
-                message: '资源发现时发生错误',
+                message: 'Error during resource discovery',
                 error: error.message
               }, null, 2) 
             }]
@@ -724,7 +724,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 text: JSON.stringify({
                   success: false,
                   data: [],
-                  message: '搜索查询不能为空',
+                  message: 'Search query不能为空',
                   error: 'Empty query parameter'
                 }, null, 2) 
               }]
@@ -751,7 +751,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 data: resourceSearchResult.resources,
                 total: resourceSearchResult.total,
                 hasMore: resourceSearchResult.hasMore,
-                message: `找到 ${resourceSearchResult.resources.length} 个资源`
+                message: `Found ${resourceSearchResult.resources.length}  resources`
               }, null, 2) 
             }]
           };
@@ -762,7 +762,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify({
                 success: false,
                 data: [],
-                message: '资源搜索时发生错误',
+                message: 'Error during resource search',
                 error: error.message
               }, null, 2) 
             }]
