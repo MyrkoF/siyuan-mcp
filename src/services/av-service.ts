@@ -366,7 +366,6 @@ export class AttributeViewService {
       case 'url':
       case 'email':
       case 'phone':
-      case 'template':
         return { [v.type]: { content: String(v.content ?? '') } };
       case 'number':
         return { number: { content: Number(v.content), isNotEmpty: true } };
@@ -392,6 +391,16 @@ export class AttributeViewService {
           }))
         };
       }
+      // System-managed / computed types — not writable via MCP
+      case 'created':
+      case 'updated':
+      case 'lineNumber':
+      case 'template':
+      case 'rollup':
+      case 'relation':
+        throw new Error(
+          `Le type "${v.type}" est géré par le système ou calculé — impossible d'écrire une valeur manuellement.`
+        );
       default:
         return { [v.type]: { content: v.content } };
     }
@@ -412,7 +421,6 @@ export class AttributeViewService {
       case 'url':
       case 'email':
       case 'phone':
-      case 'template':
         base[v.type] = { content: String(v.content ?? '') };
         break;
       case 'number':
@@ -441,6 +449,15 @@ export class AttributeViewService {
         }));
         break;
       }
+      case 'created':
+      case 'updated':
+      case 'lineNumber':
+      case 'template':
+      case 'rollup':
+      case 'relation':
+        throw new Error(
+          `Le type "${v.type}" est géré par le système ou calculé — impossible d'écrire une valeur manuellement.`
+        );
       default:
         base[v.type] = { content: v.content };
     }

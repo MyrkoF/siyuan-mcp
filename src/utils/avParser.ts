@@ -72,14 +72,8 @@ export function parseCellValue(cell: any): any {
       }));
 
     case 'lineNumber':
-      // Auto-generated row number — value is in createdAt (ordering timestamp)
+      // Auto-generated row number — no writable sub-field, value computed by position
       return v.createdAt ?? null;
-
-    case 'createdTime':
-      return v.createdAt ?? null;
-
-    case 'updatedTime':
-      return v.updatedAt ?? null;
 
     default:
       // Fallback défensif : tenter d'extraire par clé connue
