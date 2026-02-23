@@ -11,7 +11,7 @@ import { createSiyuanClient } from '../siyuanClient/index';
 import type { SiyuanClient } from '../siyuanClient/index';
 import { BatchService } from '../services/batch-service';
 import { TagService } from '../services/tag-service';
-import { AttributeViewService } from '../services/av-service';
+import { AttributeViewService, AVColumnSpec } from '../services/av-service';
 
 import { ReferenceService } from '../services/reference-service';
 import { AdvancedSearchService } from '../services/advanced-search-service';
@@ -664,6 +664,40 @@ export class MergedTools {
           },
           required: ['avId', 'column', 'value']
         }
+      },
+      {
+        name: 'av_create_database',
+        description: 'Crée une nouvelle database Attribute View dans un notebook SiYuan. Crée le document + insère la database dedans. Retourne l\'avId pour utilisation avec les autres outils av_*.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            notebookId: {
+              type: 'string',
+              description: 'ID du notebook où créer la database (obtenu via list_notebooks)'
+            },
+            name: {
+              type: 'string',
+              description: 'Nom de la database (utilisé aussi comme titre du document)'
+            },
+            columns: {
+              type: 'array',
+              description: 'Colonnes supplémentaires optionnelles (la colonne primaire "Name" est toujours créée automatiquement)',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Nom de la colonne' },
+                  type: {
+                    type: 'string',
+                    enum: ['text','number','select','mSelect','date','checkbox','url','email','phone','mAsset','created','updated','lineNumber','template','rollup','relation'],
+                    description: 'Type de la colonne'
+                  }
+                },
+                required: ['name', 'type']
+              }
+            }
+          },
+          required: ['notebookId', 'name']
+        }
       }
     ];
   }
@@ -809,6 +843,9 @@ export class MergedTools {
 
         case 'av_query_database':
           return await this.handleAvQueryDatabase(args.avId, args.column, args.value);
+
+        case 'av_create_database':
+          return await this.handleAvCreateDatabase(args.notebookId, args.name, args.columns);
 
         default:
           throw new Error(`未知的工具: ${toolName}`);
@@ -1292,6 +1329,33 @@ export class MergedTools {
       );
     } catch (error: any) {
       return createStandardResponse(false, 'Erreur lors de la requête', null, error?.message);
+    }
+  }
+
+  private async handleAvCreateDatabase(
+    notebookId: string,
+    name: string,
+    columns?: Array<{ name: string; type: string }>
+  ): Promise<StandardResponse> {
+    try {
+      if (!notebookId || !name) {
+        return createStandardResponse(
+          false, 'Paramètres manquants', null,
+          'notebookId et name sont requis'
+        );
+      }
+      const cols: AVColumnSpec[] = (columns ?? []).map(c => ({
+        name: c.name,
+        type: c.type
+      }));
+      const result = await this.avService.createDatabase(notebookId, name, cols);
+      return createStandardResponse(
+        true,
+        `Database "${result.name}" créée (avId: ${result.avId}, docId: ${result.docId})`,
+        result
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Erreur lors de la création de la database', null, error?.message);
     }
   }
 }

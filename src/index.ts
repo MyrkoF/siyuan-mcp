@@ -64,18 +64,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'notes.search',
-        description: '搜索思源笔记内容',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            query: { type: 'string', description: '搜索关键词' },
-            limit: { type: 'number', description: '返回结果数量限制', default: 10 }
-          },
-          required: ['query']
-        }
-      },
-      {
         name: 'blocks.get',
         description: '获取指定ID的块内容',
         inputSchema: {
@@ -159,15 +147,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             path: { type: 'string', description: '路径（可选，默认为根路径）' }
           },
           required: ['notebook']
-        }
-      },
-      {
-        name: 'notebooks.list',
-        description: '列出所有笔记本',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
         }
       },
       {
@@ -399,66 +378,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       ...getAllMergedTools(),
       // 新增批量操作工具
       {
-        name: 'batch.create-blocks',
-        description: '批量创建块',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            requests: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  content: { type: 'string', description: '块内容' },
-                  parentID: { type: 'string', description: '父块ID（可选）' },
-                  previousID: { type: 'string', description: '前一个块ID（可选）' }
-                },
-                required: ['content']
-              },
-              description: '批量创建请求列表'
-            }
-          },
-          required: ['requests']
-        }
-      },
-      {
-        name: 'batch.update-blocks',
-        description: '批量更新块',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            requests: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string', description: '块ID' },
-                  content: { type: 'string', description: '新内容' }
-                },
-                required: ['id', 'content']
-              },
-              description: '批量更新请求列表'
-            }
-          },
-          required: ['requests']
-        }
-      },
-      {
-        name: 'batch.delete-blocks',
-        description: '批量删除块',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            blockIds: {
-              type: 'array',
-              items: { type: 'string' },
-              description: '要删除的块ID列表'
-            }
-          },
-          required: ['blockIds']
-        }
-      },
-      {
         name: 'batch.create-docs',
         description: '批量创建文档',
         inputSchema: {
@@ -542,12 +461,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               success: result !== null
             }, null, 2) 
           }]
-        };
-
-      case 'notes.search':
-        const notesSearchResult = await siyuanClient.searchNotes(args?.query as string, args?.limit as number);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(notesSearchResult, null, 2) }]
         };
 
       case 'blocks.get':
@@ -635,12 +548,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         return {
           content: [{ type: 'text', text: JSON.stringify(docListResult, null, 2) }]
-        };
-
-      case 'notebooks.list':
-        const notebooksResult = await siyuanClient.request('/api/notebook/lsNotebooks', {});
-        return {
-          content: [{ type: 'text', text: JSON.stringify(notebooksResult, null, 2) }]
         };
 
       case 'assets.upload':
@@ -894,30 +801,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
       // 批量操作工具
-      case 'batch.create-blocks':
-        const batchCreateResult = await siyuanClient.batch.batchCreateBlocks(
-          (args?.requests as any[]) || []
-        );
-        return {
-          content: [{ type: 'text', text: JSON.stringify(batchCreateResult, null, 2) }]
-        };
-
-      case 'batch.update-blocks':
-        const batchUpdateResult = await siyuanClient.batch.batchUpdateBlocks(
-          (args?.requests as any[]) || []
-        );
-        return {
-          content: [{ type: 'text', text: JSON.stringify(batchUpdateResult, null, 2) }]
-        };
-
-      case 'batch.delete-blocks':
-        const batchDeleteResult = await siyuanClient.batch.batchDeleteBlocks(
-          (args?.blockIds as string[]) || []
-        );
-        return {
-          content: [{ type: 'text', text: JSON.stringify(batchDeleteResult, null, 2) }]
-        };
-
       case 'batch.create-docs':
         const batchDocsResult = await siyuanClient.batch.batchCreateDocs(
           (args?.requests as any[]) || []
@@ -981,6 +864,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'av_delete_row':
       case 'av_update_row':
       case 'av_query_database':
+      case 'av_create_database':
         const Result = await handleMergedTool(name, args);
         return Result; // 直接返回MCP格式的结果
 

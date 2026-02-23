@@ -10,6 +10,8 @@
  *
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { SiyuanClient } from '../siyuanClient';
 import { parseColumns, parseRow, findColumn } from '../utils/avParser';
 
@@ -51,6 +53,18 @@ export interface AVCreateRowValue {
   keyId: string;
   type: string;
   content: any;
+}
+
+export interface AVColumnSpec {
+  name: string;
+  type: string;
+}
+
+export interface AVCreateDatabaseResult {
+  avId: string;
+  docId: string;
+  name: string;
+  notebookId: string;
 }
 
 // ==================== Service ====================
@@ -353,7 +367,182 @@ export class AttributeViewService {
     return { ...db, rows: filteredRows, total: filteredRows.length };
   }
 
+  /**
+   * Crée une nouvelle database Attribute View dans un document SiYuan.
+   *
+   * Stratégie (aucun endpoint HTTP disponible pour créer une AV) :
+   * 1. Générer les IDs SiYuan (avID, viewID, primaryKeyID)
+   * 2. Écrire le fichier JSON dans /data/storage/av/<avID>.json via filesystem
+   * 3. Créer un document dans le notebook cible
+   * 4. Insérer un bloc AV dans le document via /api/block/insertBlock
+   *
+   * @param notebookId  — ID du notebook cible (requis)
+   * @param name        — Nom de la database ET du document créé
+   * @param columns     — Colonnes supplémentaires optionnelles [{name, type}]
+   */
+  async createDatabase(
+    notebookId: string,
+    name: string,
+    columns: AVColumnSpec[] = []
+  ): Promise<AVCreateDatabaseResult> {
+    if (!notebookId?.trim()) throw new Error('notebookId est requis');
+    if (!name?.trim())       throw new Error('name est requis');
+
+    const dbName    = name.trim();
+    const avId      = this.generateSiyuanId();
+    const viewId    = this.generateSiyuanId();
+    const primaryId = this.generateSiyuanId();
+
+    // Types valides pour les colonnes additionnelles
+    const WRITABLE_TYPES = new Set([
+      'text','number','select','mSelect','date','checkbox',
+      'url','email','phone','mAsset'
+    ]);
+    // Types système (read-only, déclarables mais pas de valeur à écrire)
+    const SYSTEM_TYPES = new Set(['created','updated','lineNumber','template','rollup','relation']);
+
+    // Construire keyValues : colonne primaire + colonnes additionnelles
+    const keyValues: any[] = [
+      {
+        key: {
+          id: primaryId,
+          name: 'Name',
+          type: 'block',
+          icon: '', desc: '', numberFormat: '', template: ''
+        },
+        values: []
+      }
+    ];
+
+    const viewColumns: any[] = [
+      { id: primaryId, width: '', hidden: false, pin: false, icon: '', calc: null }
+    ];
+
+    for (const col of columns) {
+      const colType = col.type?.trim() ?? 'text';
+      const colName = col.name?.trim();
+      if (!colName) continue;
+
+      if (!WRITABLE_TYPES.has(colType) && !SYSTEM_TYPES.has(colType)) {
+        throw new Error(`Type de colonne inconnu : "${colType}"`);
+      }
+
+      const colId = this.generateSiyuanId();
+      const key: any = { id: colId, name: colName, type: colType, icon: '', desc: '' };
+
+      if (colType === 'number')   key.numberFormat = '';
+      if (colType === 'template') key.template = '';
+      if (colType === 'relation') key.relation = { avID: '', isTwoWay: false, backKeyID: '' };
+      if (colType === 'mSelect' || colType === 'select') key.options = [];
+
+      keyValues.push({ key, values: [] });
+      viewColumns.push({ id: colId, width: '', hidden: false, pin: false, icon: '', calc: null });
+    }
+
+    // Construire le JSON de la database
+    const dbJson = {
+      spec: 1,
+      id: avId,
+      name: dbName,
+      keyValues,
+      keyIDs: null,
+      viewID: viewId,
+      views: [
+        {
+          id: viewId,
+          icon: '', name: 'Default View', hideAttrViewName: false,
+          desc: '', pageSize: 50, type: 'table',
+          table: {
+            columns: viewColumns,
+            rowIds: [], filters: [], sorts: [],
+            groupBy: null, calcs: null
+          },
+          itemIds: [],
+          groupCreated: null, groupItemIds: null,
+          groupFolded: null, groupHidden: null, groupSort: null
+        }
+      ]
+    };
+
+    // Écrire le fichier JSON directement sur le filesystem
+    // (aucun endpoint HTTP pour créer une AV dans SiYuan)
+    const avStoragePath = this.resolveAvStoragePath();
+    const avFilePath = path.join(avStoragePath, `${avId}.json`);
+    fs.writeFileSync(avFilePath, JSON.stringify(dbJson, null, 2), 'utf8');
+
+    // Créer le document dans le notebook
+    const docResp = await this.client.request('/api/filetree/createDocWithMd', {
+      notebook: notebookId.trim(),
+      path: `/${dbName}`,
+      markdown: ''
+    });
+
+    if (!docResp || docResp.code !== 0) {
+      // Nettoyer le fichier créé si la création doc échoue
+      try { fs.unlinkSync(avFilePath); } catch {}
+      throw new Error(`Création du document échouée: ${docResp?.msg ?? 'erreur inconnue'}`);
+    }
+
+    const docId: string = docResp.data;
+
+    // Insérer le bloc AV dans le document
+    const blockResp = await this.client.request('/api/block/insertBlock', {
+      dataType: 'markdown',
+      data: `<div data-type="NodeAttributeView" data-av-id="${avId}" data-av-type="table"></div>`,
+      parentID: docId
+    });
+
+    if (!blockResp || blockResp.code !== 0) {
+      throw new Error(`Insertion du bloc AV échouée: ${blockResp?.msg ?? 'erreur inconnue'}`);
+    }
+
+    return { avId, docId, name: dbName, notebookId: notebookId.trim() };
+  }
+
   // ==================== Helpers privés ====================
+
+  /**
+   * Génère un ID SiYuan au format YYYYMMDDHHMMSS-xxxxxxx.
+   */
+  private generateSiyuanId(): string {
+    const now = new Date();
+    const ts = now.getFullYear().toString()
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0')
+      + String(now.getHours()).padStart(2, '0')
+      + String(now.getMinutes()).padStart(2, '0')
+      + String(now.getSeconds()).padStart(2, '0');
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const suffix = Array.from({ length: 7 }, () =>
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
+    return `${ts}-${suffix}`;
+  }
+
+  /**
+   * Résout le chemin du répertoire /data/storage/av depuis le workspace SiYuan.
+   * Cherche dans les emplacements connus ou utilise SIYUAN_WORKSPACE_PATH.
+   */
+  private resolveAvStoragePath(): string {
+    // Priorité : variable d'environnement
+    if (process.env.SIYUAN_WORKSPACE_PATH) {
+      const p = path.join(process.env.SIYUAN_WORKSPACE_PATH, 'data', 'storage', 'av');
+      if (fs.existsSync(p)) return p;
+    }
+    // Emplacement par défaut Linux/Mac
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const candidates = [
+      path.join(home, 'SiYuan', 'data', 'storage', 'av'),
+      path.join(home, 'Documents', 'SiYuan', 'data', 'storage', 'av'),
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+    throw new Error(
+      'Répertoire /data/storage/av introuvable. ' +
+      'Définissez SIYUAN_WORKSPACE_PATH pour pointer vers votre workspace SiYuan.'
+    );
+  }
 
   /**
    * Convertit un AVCreateRowValue au format attendu par setAttributeViewBlockAttr.
