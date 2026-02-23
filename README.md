@@ -123,8 +123,8 @@ No clone, no build. Just add this to your `claude_desktop_config.json` and resta
 }
 ```
 If SiYuan runs on a non-default port or remote machine:
-```
-json
+
+```json
 {
   "mcpServers": {
     "siyuan": {
@@ -148,8 +148,8 @@ npm run build
 ```
 
 Then add this to your claude_desktop_config.json:
-```
-json
+
+```json
 {
   "mcpServers": {
     "siyuan": {
@@ -163,8 +163,8 @@ json
 }
 ```
 If SiYuan runs on a non-default port or remote machine:
-```
-json
+
+```json
 {
   "mcpServers": {
     "siyuan": {
@@ -193,38 +193,7 @@ json
 
 **Legacy aliases** (still supported): `SIYUAN_TOKEN` → `SIYUAN_API_TOKEN`, `SIYUAN_BASE_URL` → `SIYUAN_API_URL`
 
-### Claude Desktop (`claude_desktop_config.json`)
 
-```json
-{
-  "mcpServers": {
-    "siyuan": {
-      "command": "node",
-      "args": ["/path/to/siyuan-mcp/dist/index.js"],
-      "env": {
-        "SIYUAN_API_TOKEN": "your-token-here"
-      }
-    }
-  }
-}
-```
-
-If SiYuan runs on a non-default port or on a remote machine:
-
-```json
-{
-  "mcpServers": {
-    "siyuan": {
-      "command": "node",
-      "args": ["/path/to/siyuan-mcp/dist/index.js"],
-      "env": {
-        "SIYUAN_API_TOKEN": "your-token-here",
-        "SIYUAN_API_URL": "http://127.0.0.1:6806"
-      }
-    }
-  }
-}
-```
 
 ### Docker / remote SiYuan
 
