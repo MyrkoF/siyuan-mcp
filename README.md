@@ -99,12 +99,47 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 
 ### Prerequisites
 - [SiYuan Note](https://b3log.org/siyuan/en/) installed and running
+- The **sy-query-view** plugin installed in SiYuan (mandatory)
 - Node.js 18+
 
 ### Get your API token
 In SiYuan: **Settings → About → API token** → copy the token.
 
-### From source
+### Option 1 — npx (recommended, no install)
+
+No clone, no build. Just add this to your `claude_desktop_config.json` and restart Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "command": "npx",
+      "args": ["-y", "siyuan-query-mcp@latest"],
+      "env": {
+        "SIYUAN_API_TOKEN": "your-token-here"
+      }
+    }
+  }
+}
+```
+If SiYuan runs on a non-default port or remote machine:
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "command": "npx",
+      "args": ["-y", "siyuan-query-mcp@latest"],
+      "env": {
+        "SIYUAN_API_TOKEN": "your-token-here",
+        "SIYUAN_API_URL": "http://192.168.1.100:6806"
+      }
+    }
+  }
+}
+
+```
+### Option 2 From source
 ```bash
 git clone https://github.com/MyrkoF/siyuan-mcp.git
 cd siyuan-mcp
@@ -112,20 +147,7 @@ npm install
 npm run build
 ```
 
----
-
-## Configuration
-
-### Environment variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SIYUAN_API_TOKEN` | **Yes** | Your SiYuan API token (from Settings → About) |
-| `SIYUAN_API_URL` | No | SiYuan API base URL. If omitted, the server auto-discovers the port by scanning 6806–6808. |
-
-**Legacy aliases** (still supported): `SIYUAN_TOKEN` → `SIYUAN_API_TOKEN`, `SIYUAN_BASE_URL` → `SIYUAN_API_URL`
-
-### Claude Desktop (`claude_desktop_config.json`)
+Then add this to your claude_desktop_config.json:
 
 ```json
 {
@@ -140,8 +162,7 @@ npm run build
   }
 }
 ```
-
-If SiYuan runs on a non-default port or on a remote machine:
+If SiYuan runs on a non-default port or remote machine:
 
 ```json
 {
@@ -151,12 +172,28 @@ If SiYuan runs on a non-default port or on a remote machine:
       "args": ["/path/to/siyuan-mcp/dist/index.js"],
       "env": {
         "SIYUAN_API_TOKEN": "your-token-here",
-        "SIYUAN_API_URL": "http://127.0.0.1:6806"
+        "SIYUAN_API_URL": "http://192.168.1.100:6806"
       }
     }
   }
 }
 ```
+
+
+---
+
+## Configuration
+
+### Environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SIYUAN_API_TOKEN` | **Yes** | Your SiYuan API token (from Settings → About) |
+| `SIYUAN_API_URL` | No | SiYuan API base URL. If omitted, the server auto-discovers the port by scanning 6806–6808. |
+
+**Legacy aliases** (still supported): `SIYUAN_TOKEN` → `SIYUAN_API_TOKEN`, `SIYUAN_BASE_URL` → `SIYUAN_API_URL`
+
+
 
 ### Docker / remote SiYuan
 

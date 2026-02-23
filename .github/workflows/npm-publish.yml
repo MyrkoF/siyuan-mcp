@@ -1,68 +1,33 @@
-name: 发布到npm
+# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
+# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+
+name: Node.js Package
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'  # 匹配语义化版本标签，如v1.0.0
+  release:
+    types: [created]
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-      
-      - name: 设置Node.js
-        uses: actions/setup-node@v4
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+
+  publish-npm:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
-      
-      - name: 安装依赖
-        run: npm ci
-      
-      - name: 构建项目
-        run: npm run build
-      
-      - name: 运行测试
-        run: npm test -- --passWithNoTests
-        continue-on-error: true
-      
-      - name: 验证包
-        run: npm pack --dry-run
-      
-      - name: 发布到npm
-        run: npm publish
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+      - run: npm ci
+      - run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      
-      - name: 创建GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: Release ${{ github.ref_name }}
-          body: |
-            ## 🚀 SiYuan MCP Server ${{ github.ref_name }}
-            
-            ### 📦 npm 包已发布
-            
-            可以通过以下命令安装：
-            
-            \`\`\`bash
-            # 全局安装
-            npm install -g siyuan-mcp-server@${{ github.ref_name }}
-            
-            # 项目中安装
-            npm install siyuan-mcp-server@${{ github.ref_name }}
-            \`\`\`
-            
-            ### 🔗 相关链接
-            - [npm 包地址](https://www.npmjs.com/package/siyuan-mcp-server)
-            - [使用文档](https://github.com/${{ github.repository }}/blob/main/README.md)
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
