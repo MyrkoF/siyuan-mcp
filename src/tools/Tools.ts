@@ -1070,7 +1070,7 @@ export class MergedTools {
     if (!interceptionResult.allowed) {
       return createStandardResponse(
         false,
-        interceptionResult.errors.join('; ') || '工具调用被拦截',
+        interceptionResult.errors.join('; ') || 'Tool call intercepted',
         null,
         interceptionResult.errors.join('; ')
       );
@@ -1405,10 +1405,10 @@ export class MergedTools {
 
 
         default:
-          throw new Error(`未知的工具: ${toolName}`);
+          throw new Error(`Unknown tool: ${toolName}`);
       }
     } catch (error: any) {
-      throw new Error(`工具执行失败: ${error.message}`);
+      throw new Error(`Tool execution failed: ${error.message}`);
     }
   }
 
@@ -1429,9 +1429,9 @@ export class MergedTools {
       if (!Array.isArray(notebooks)) {
         return createStandardResponse(
           false,
-          "获取笔记本列表失败",
+          "Failed to list notebooks",
           null,
-          "无法获取有效的笔记本数据"
+          "No valid notebook data returned"
         );
       }
 
@@ -1451,7 +1451,7 @@ export class MergedTools {
 
       return createStandardResponse(
         true,
-        `成功获取 ${validNotebooks.length} 个笔记本`,
+        `Retrieved ${validNotebooks.length} notebook(s)`,
         {
           notebooks: validNotebooks,
           total: validNotebooks.length
@@ -1461,9 +1461,9 @@ export class MergedTools {
       // 完全禁用日志输出 - 用户不需要任何日志
       return createStandardResponse(
         false,
-        "获取笔记本列表时发生错误",
+        "Error listing notebooks",
         null,
-        error?.message || '未知错误'
+        error?.message || 'Unknown error'
       );
     }
   }
@@ -1483,9 +1483,9 @@ export class MergedTools {
       if (!query || query.trim() === '') {
         return createStandardResponse(
           false,
-          "搜索参数无效",
+          "Invalid search parameters",
           { query, limit },
-          "Search keyword不能为空"
+          "Search keyword cannot be empty"
         );
       }
 
@@ -1497,16 +1497,16 @@ export class MergedTools {
       if (!Array.isArray(blocks)) {
         return createStandardResponse(
           false,
-          "搜索返回无效结果",
+          "Search returned invalid results",
           { query, limit },
-          "API返回的数据格式不正确"
+          "Invalid API response format"
         );
       }
 
       // 处理搜索结果，确保格式正确
       const processedResults = blocks.slice(0, limit).map((result: any) => ({
         id: result.id || '',
-        title: result.title || '无标题',
+        title: result.title || 'Untitled',
         content: result.content || '',
         contentPreview: (result.content || '').substring(0, 150) + ((result.content || '').length > 150 ? '...' : ''),
         notebook: result.notebook || '',
@@ -1518,7 +1518,7 @@ export class MergedTools {
 
       return createStandardResponse(
         true,
-        `Found ${processedResults.length} 条搜索结果`,
+        `Found ${processedResults.length} result(s)`,
         {
           query: query.trim(),
           results: processedResults,
@@ -1531,9 +1531,9 @@ export class MergedTools {
       // 完全禁用日志输出 - 用户不需要任何日志
       return createStandardResponse(
         false,
-        "搜索时发生错误",
+        "Error during search",
         { query, limit },
-        error?.message || '未知错误'
+        error?.message || 'Unknown error'
       );
     }
   }
@@ -1551,9 +1551,9 @@ export class MergedTools {
       if (!name || name.trim() === '') {
         return createStandardResponse(
           false,
-          "Notebook name无效",
+          "Invalid notebook name",
           { name, icon },
-          "Notebook name不能为空"
+          "Notebook name is required"
         );
       }
 
@@ -1566,7 +1566,7 @@ export class MergedTools {
         const notebookId = result.data.notebook?.id || result.data.id;
         return createStandardResponse(
           true,
-          "笔记本创建成功",
+          "Notebook created successfully",
           {
             id: notebookId,
             name: name.trim(),
@@ -1578,18 +1578,18 @@ export class MergedTools {
       } else {
         return createStandardResponse(
           false,
-          "笔记本创建失败",
+          "Notebook creation failed",
           { name: name.trim(), icon },
-          result?.msg || '创建失败'
+          result?.msg || 'Creation failed'
         );
       }
     } catch (error: any) {
       // 完全禁用日志输出 - 用户不需要任何日志
       return createStandardResponse(
         false,
-        "创建笔记本时发生错误",
+        "Error creating notebook",
         { name, icon },
-        error?.message || '未知错误'
+        error?.message || 'Unknown error'
       );
     }
   }
@@ -1611,7 +1611,7 @@ export class MergedTools {
           false,
           "Parameter validation failed",
           { notebook, parentPath, title },
-          "Notebook ID、父路径和标题都是必需的"
+          "Notebook ID, parent path and title are required"
         );
       }
 
@@ -1629,7 +1629,7 @@ export class MergedTools {
         const docId = result.data;
         return createStandardResponse(
           true,
-          "子Document created successfully",
+          "Child document created successfully",
           {
             id: docId,
             title: title,
@@ -1643,18 +1643,17 @@ export class MergedTools {
       } else {
         return createStandardResponse(
           false,
-          "子文档创建失败",
+          "Child document creation failed",
           { title, notebook, parentPath },
-          result?.msg || '创建失败'
+          result?.msg || 'Creation failed'
         );
       }
     } catch (error: any) {
-      // 完全禁用日志输出 - 用户不需要任何日志
       return createStandardResponse(
         false,
-        "创建子文档时发生错误",
+        "Error creating child document",
         { title, notebook, parentPath },
-        error?.message || '未知错误'
+        error?.message || 'Unknown error'
       );
     }
   }
@@ -1664,55 +1663,55 @@ export class MergedTools {
   private async handleDocGet(id: string): Promise<StandardResponse> {
     try {
       if (!id?.trim()) {
-        return createStandardResponse(false, 'Paramètre manquant', null, 'id est requis');
+        return createStandardResponse(false, 'Missing parameter', null, 'id is required');
       }
       const doc = await this.docService.getDocument(id);
-      return createStandardResponse(true, `Document "${doc.hPath}" lu (${doc.content.length} caractères)`, doc);
+      return createStandardResponse(true, `Document "${doc.hPath}" read (${doc.content.length} chars)`, doc);
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la lecture du document', null, error?.message);
+      return createStandardResponse(false, 'Error reading document', null, error?.message);
     }
   }
 
   private async handleDocRename(id: string, title: string): Promise<StandardResponse> {
     try {
       if (!id?.trim() || !title?.trim()) {
-        return createStandardResponse(false, 'Paramètres manquants', null, 'id et title sont requis');
+        return createStandardResponse(false, 'Missing parameters', null, 'id and title are required');
       }
       await this.docService.renameDocument(id, title);
-      return createStandardResponse(true, `Document renommé en "${title}"`, { id, title });
+      return createStandardResponse(true, `Document renamed to "${title}"`, { id, title });
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors du renommage', null, error?.message);
+      return createStandardResponse(false, 'Error renaming document', null, error?.message);
     }
   }
 
   private async handleDocDelete(id: string, cascade: boolean): Promise<StandardResponse> {
     try {
       if (!id?.trim()) {
-        return createStandardResponse(false, 'Paramètre manquant', null, 'id est requis');
+        return createStandardResponse(false, 'Missing parameter', null, 'id is required');
       }
       const result = await this.docService.deleteDocument(id, cascade);
       const msg = result.childCount > 0
-        ? `Document supprimé avec ${result.childCount} enfant(s) (corbeille SiYuan)`
-        : 'Document supprimé (corbeille SiYuan)';
+        ? `Document deleted with ${result.childCount} child(ren) (SiYuan trash)`
+        : 'Document deleted (SiYuan trash)';
       return createStandardResponse(true, msg, result);
     } catch (error: any) {
-      return createStandardResponse(false, 'Suppression refusée ou échouée', null, error?.message);
+      return createStandardResponse(false, 'Deletion refused or failed', null, error?.message);
     }
   }
 
   private async handleDocMove(fromIds: string[], toId: string): Promise<StandardResponse> {
     try {
       if (!fromIds?.length || !toId?.trim()) {
-        return createStandardResponse(false, 'Paramètres manquants', null, 'fromIds et toId sont requis');
+        return createStandardResponse(false, 'Missing parameters', null, 'fromIds and toId are required');
       }
       await this.docService.moveDocuments(fromIds, toId);
       return createStandardResponse(
         true,
-        `${fromIds.length} document(s) déplacé(s) vers ${toId}`,
+        `${fromIds.length} document(s) moved to ${toId}`,
         { fromIds, toId, count: fromIds.length }
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors du déplacement', null, error?.message);
+      return createStandardResponse(false, 'Error moving document(s)', null, error?.message);
     }
   }
 
@@ -1721,54 +1720,54 @@ export class MergedTools {
   private async handleAvListDatabases(nameFilter?: string): Promise<StandardResponse> {
     try {
       const databases = await this.avService.listDatabases(nameFilter);
-      const filterMsg = nameFilter ? ` (filtre: "${nameFilter}")` : '';
+      const filterMsg = nameFilter ? ` (filter: "${nameFilter}")` : '';
       return createStandardResponse(
         true,
-        `${databases.length} database(s) trouvée(s)${filterMsg}`,
+        `${databases.length} database(s) found${filterMsg}`,
         { databases, total: databases.length }
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors du listage des databases', null, error?.message);
+      return createStandardResponse(false, 'Error listing databases', null, error?.message);
     }
   }
 
   private async handleAvRenderDatabase(id: string): Promise<StandardResponse> {
     try {
       if (!id) {
-        return createStandardResponse(false, 'ID de database requis', null, 'Paramètre id manquant');
+        return createStandardResponse(false, 'Database ID required', null, 'Missing parameter: id');
       }
       const db = await this.avService.renderDatabase(id);
       return createStandardResponse(
         true,
-        `Database "${db.name}" lue: ${db.rows.length} lignes, ${db.columns.length} colonnes`,
+        `Database "${db.name}": ${db.rows.length} row(s), ${db.columns.length} column(s)`,
         db
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la lecture de la database', null, error?.message);
+      return createStandardResponse(false, 'Error reading database', null, error?.message);
     }
   }
 
   private async handleAvCreateRow(avId: string, name?: string, values?: any[]): Promise<StandardResponse> {
     try {
       if (!avId) {
-        return createStandardResponse(false, 'Paramètre manquant', null, 'avId est requis');
+        return createStandardResponse(false, 'Missing parameter', null, 'avId is required');
       }
       const newRow = await this.avService.createRow(avId, name ?? '', values ?? []);
       if (!newRow) {
         return createStandardResponse(
           false,
-          'Ligne créée mais introuvable dans le diff post-render',
+          'Row created but not found in post-render diff',
           null,
-          'La ligne a peut-être été créée mais son ID ne peut pas être déterminé'
+          'Row may have been created but its ID cannot be determined'
         );
       }
       return createStandardResponse(
         true,
-        `Ligne créée avec succès (ID: ${newRow.id})`,
+        `Row created successfully (ID: ${newRow.id})`,
         newRow
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la création de la ligne', null, error?.message);
+      return createStandardResponse(false, 'Error creating row', null, error?.message);
     }
   }
 
@@ -1776,37 +1775,37 @@ export class MergedTools {
     try {
       if (!avId || !rowIds || rowIds.length === 0) {
         return createStandardResponse(
-          false, 'Paramètres manquants', null,
-          'avId et rowIds (tableau non vide) sont requis'
+          false, 'Missing parameters', null,
+          'avId and rowIds (non-empty array) are required'
         );
       }
       await this.avService.deleteRows(avId, rowIds);
       return createStandardResponse(
         true,
-        `${rowIds.length} ligne(s) supprimée(s) avec succès`,
+        `${rowIds.length} row(s) deleted successfully`,
         { avId, deletedRowIds: rowIds, count: rowIds.length }
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la suppression', null, error?.message);
+      return createStandardResponse(false, 'Error deleting rows', null, error?.message);
     }
   }
 
   private async handleAvUpdateRow(avId: string, rowId: string, updates: any[]): Promise<StandardResponse> {
     try {
       if (!avId || !rowId) {
-        return createStandardResponse(false, 'Paramètres manquants', null, 'avId et rowId sont requis');
+        return createStandardResponse(false, 'Missing parameters', null, 'avId and rowId are required');
       }
       if (!updates || updates.length === 0) {
-        return createStandardResponse(false, 'Paramètres manquants', null, 'updates doit contenir au moins une cellule');
+        return createStandardResponse(false, 'Missing parameters', null, 'updates must contain at least one cell');
       }
       await this.avService.batchUpdateRow(avId, rowId, updates);
       return createStandardResponse(
         true,
-        `${updates.length} cellule(s) mise(s) à jour`,
+        `${updates.length} cell(s) updated`,
         { avId, rowId, updatedKeys: updates.map((u: any) => u.keyId) }
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la mise à jour', null, error?.message);
+      return createStandardResponse(false, 'Error updating row', null, error?.message);
     }
   }
 
@@ -1814,18 +1813,18 @@ export class MergedTools {
     try {
       if (!avId || !column || value === undefined) {
         return createStandardResponse(
-          false, 'Paramètres manquants', null,
-          'avId, column et value sont requis'
+          false, 'Missing parameters', null,
+          'avId, column and value are required'
         );
       }
       const db = await this.avService.queryDatabase(avId, column, String(value));
       return createStandardResponse(
         true,
-        `${db.rows.length} entrée(s) trouvée(s) pour "${column}" = "${value}"`,
+        `${db.rows.length} row(s) found for "${column}" = "${value}"`,
         db
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la requête', null, error?.message);
+      return createStandardResponse(false, 'Error querying database', null, error?.message);
     }
   }
 
@@ -1837,8 +1836,8 @@ export class MergedTools {
     try {
       if (!notebookId || !name) {
         return createStandardResponse(
-          false, 'Paramètres manquants', null,
-          'notebookId et name sont requis'
+          false, 'Missing parameters', null,
+          'notebookId and name are required'
         );
       }
       const cols: AVColumnSpec[] = (columns ?? []).map(c => ({
@@ -1848,11 +1847,11 @@ export class MergedTools {
       const result = await this.avService.createDatabase(notebookId, name, cols);
       return createStandardResponse(
         true,
-        `Database "${result.name}" créée (avId: ${result.avId}, docId: ${result.docId})`,
+        `Database "${result.name}" created (avId: ${result.avId}, docId: ${result.docId})`,
         result
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Erreur lors de la création de la database', null, error?.message);
+      return createStandardResponse(false, 'Error creating database', null, error?.message);
     }
   }
 }
@@ -1875,9 +1874,9 @@ export async function handleMergedTool(name: string, args: any): Promise<any> {
     
     const errorResult = createStandardResponse(
       false,
-      "工具处理时发生错误",
+      "Tool execution error",
       { toolName: name, args },
-      error?.message || '未知错误'
+      error?.message || 'Unknown error'
     );
     
     return convertToMCPFormat(errorResult);
@@ -1902,7 +1901,7 @@ function convertToMCPFormat(response: any): any {
     const statusIcon = response.success ? '✅' : '❌';
     const content = response.success 
       ? `${statusIcon} ${response.message}\n\n${formatResponseData(response.data)}`
-      : `${statusIcon} ${response.message}\n\n❗ 错误: ${response.error || '未知错误'}`;
+      : `${statusIcon} ${response.message}\n\n❗ Error: ${response.error || 'Unknown error'}`;
 
     return {
       content: [

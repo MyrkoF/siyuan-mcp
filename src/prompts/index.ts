@@ -60,7 +60,7 @@ export class PromptTemplateManager {
             `- ${r.content?.substring(0, 100)}... (${r.path})`
           ).join('\n');
         } catch (error) {
-          searchResults = '搜索时出现错误';
+          searchResults = 'Error during search';
         }
       }
 
@@ -70,19 +70,19 @@ export class PromptTemplateManager {
             role: 'system',
             content: {
               type: 'text',
-              text: `你是一个思源笔记搜索助手。你可以帮助用户在思源笔记中搜索和查找信息。
+              text: `You are a SiYuan Note search assistant. You help users search and find information within their SiYuan notes.
 
-当前搜索结果：
-${searchResults || '暂无搜索结果'}
+Current search results:
+${searchResults || 'No search results'}
 
-请根据搜索结果为用户提供有用的信息和建议。`
+Use the search results to provide helpful information and suggestions to the user.`
             }
           },
           {
             role: 'user',
             content: {
               type: 'text',
-              text: context || `请帮我搜索关于"${query}"的内容`
+              text: context || `Please help me find information about "${query}"`
             }
           }
         ]
@@ -98,7 +98,7 @@ ${searchResults || '暂无搜索结果'}
         try {
           const notebooks = await this.siyuanClient.request('/api/notebook/lsNotebooks', {});
           const nb = notebooks.find((n: any) => n.id === notebook || n.name === notebook);
-          notebookInfo = nb ? `目标笔记本：${nb.name}` : '';
+          notebookInfo = nb ? `Target notebook: ${nb.name}` : '';
         } catch (error) {
           notebookInfo = '';
         }
@@ -110,22 +110,22 @@ ${searchResults || '暂无搜索结果'}
             role: 'system',
             content: {
               type: 'text',
-              text: `你是一个思源笔记文档创建助手。你可以帮助用户创建结构化的文档内容。
+              text: `You are a SiYuan Note document creation assistant. You help users create structured document content.
 
 ${notebookInfo}
 
-请根据用户提供的信息，创建一个结构清晰、内容丰富的文档。使用Markdown格式，包含适当的标题层级、列表和格式化。`
+Based on the information provided, create a well-structured and comprehensive document. Use Markdown format with appropriate heading levels, lists, and formatting.`
             }
           },
           {
             role: 'user',
             content: {
               type: 'text',
-              text: `请帮我创建一个关于"${topic || title}"的文档。
-${title ? `文档标题：${title}` : ''}
-${outline ? `大纲要求：${outline}` : ''}
+              text: `Please help me create a document about "${topic || title}".
+${title ? `Document title: ${title}` : ''}
+${outline ? `Outline requirements: ${outline}` : ''}
 
-请提供完整的文档内容。`
+Please provide complete document content.`
             }
           }
         ]
@@ -140,17 +140,17 @@ ${outline ? `大纲要求：${outline}` : ''}
       if (sessionId) {
         try {
           const context = await contextManager.exportContextSummary(sessionId);
-          contextInfo = `\n相关上下文：\n${context.summary}`;
+          contextInfo = `\nRelated context:\n${context.summary}`;
         } catch (error) {
           contextInfo = '';
         }
       }
 
       const styleInstructions = {
-        concise: '请提供简洁的要点总结',
-        detailed: '请提供详细的分析和总结',
-        bullet: '请使用项目符号列表格式总结',
-        academic: '请使用学术风格进行总结分析'
+        concise: 'Provide a concise bullet-point summary',
+        detailed: 'Provide a detailed analysis and summary',
+        bullet: 'Summarize using a bullet-point list format',
+        academic: 'Summarize using an academic style'
       };
 
       return {
@@ -159,16 +159,16 @@ ${outline ? `大纲要求：${outline}` : ''}
             role: 'system',
             content: {
               type: 'text',
-              text: `你是一个内容总结助手。你可以帮助用户总结和分析文档内容。
+              text: `You are a content summarization assistant. You help users summarize and analyze document content.
 
-总结风格：${styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.concise}${contextInfo}`
+Summary style: ${styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.concise}${contextInfo}`
             }
           },
           {
             role: 'user',
             content: {
               type: 'text',
-              text: `请总结以下内容：
+              text: `Please summarize the following content:
 
 ${content}`
             }
@@ -207,9 +207,9 @@ ${content}`
       }
 
       const depthInstructions = {
-        shallow: '提供基本的关联信息',
-        medium: '提供中等深度的关联分析',
-        deep: '提供深入的知识网络分析'
+        shallow: 'Provide basic connection information',
+        medium: 'Provide a moderate-depth connection analysis',
+        deep: 'Provide an in-depth knowledge network analysis'
       };
 
       return {
@@ -218,24 +218,24 @@ ${content}`
             role: 'system',
             content: {
               type: 'text',
-              text: `你是一个知识连接助手。你可以帮助用户发现和建立知识之间的联系。
+              text: `You are a knowledge connection assistant. You help users discover and build connections between ideas.
 
-分析深度：${depthInstructions[depth as keyof typeof depthInstructions] || depthInstructions.medium}
+Analysis depth: ${depthInstructions[depth as keyof typeof depthInstructions] || depthInstructions.medium}
 
-相关内容：
-${relatedContent || '暂无相关内容'}
+Related content:
+${relatedContent || 'No related content found'}
 
-当前上下文引用：
-${contextRefs || '暂无上下文引用'}
+Current context references:
+${contextRefs || 'No context references'}
 
-请帮助用户建立知识连接，发现潜在的关联和洞察。`
+Help the user build knowledge connections and discover potential relationships and insights.`
             }
           },
           {
             role: 'user',
             content: {
               type: 'text',
-              text: `请帮我分析"${topic}"这个主题的知识连接和相关性。`
+              text: `Please help me analyze the knowledge connections and relationships for the topic "${topic}".`
             }
           }
         ]
@@ -264,24 +264,24 @@ ${contextRefs || '暂无上下文引用'}
             role: 'system',
             content: {
               type: 'text',
-              text: `你是一个学习路径规划助手。你可以帮助用户制定个性化的学习计划。
+              text: `You are a learning path planning assistant. You help users create personalized learning plans.
 
-现有相关笔记：
-${relatedNotes || '暂无相关笔记'}
+Existing related notes:
+${relatedNotes || 'No related notes found'}
 
-请根据用户的学习目标和现有资源，制定一个结构化的学习路径。`
+Based on the user's learning goals and existing resources, create a structured learning path.`
             }
           },
           {
             role: 'user',
             content: {
               type: 'text',
-              text: `请为我制定一个关于"${subject}"的学习路径。
-学习水平：${level}
-${goals ? `学习目标：${goals}` : ''}
-${timeframe ? `时间安排：${timeframe}` : ''}
+              text: `Please create a learning path for "${subject}".
+Current level: ${level}
+${goals ? `Learning goals: ${goals}` : ''}
+${timeframe ? `Timeframe: ${timeframe}` : ''}
 
-请提供详细的学习计划和建议。`
+Please provide a detailed study plan and recommendations.`
             }
           }
         ]
@@ -305,11 +305,11 @@ ${timeframe ? `时间安排：${timeframe}` : ''}
       }
 
       const typeInstructions = {
-        article: '撰写一篇结构完整的文章',
-        blog: '撰写一篇博客文章',
-        report: '撰写一份正式报告',
-        summary: '撰写一份总结文档',
-        tutorial: '撰写一份教程指南'
+        article: 'Write a well-structured article',
+        blog: 'Write a blog post',
+        report: 'Write a formal report',
+        summary: 'Write a summary document',
+        tutorial: 'Write a tutorial guide'
       };
 
       return {
@@ -318,23 +318,23 @@ ${timeframe ? `时间安排：${timeframe}` : ''}
             role: 'system',
             content: {
               type: 'text',
-              text: `你是一个专业的写作助手。你可以帮助用户创作各种类型的文档。
+              text: `You are a professional writing assistant. You help users create various types of documents.
 
-写作类型：${typeInstructions[type as keyof typeof typeInstructions] || typeInstructions.article}
-目标受众：${audience}
-写作风格：${tone}
+Writing type: ${typeInstructions[type as keyof typeof typeInstructions] || typeInstructions.article}
+Target audience: ${audience}
+Writing tone: ${tone}
 
-参考资料：
-${referenceContent || '暂无参考资料'}
+Reference material:
+${referenceContent || 'No reference material found'}
 
-请根据要求创作高质量的内容，注意结构清晰、逻辑严密。`
+Create high-quality content with a clear structure and logical flow.`
             }
           },
           {
             role: 'user',
             content: {
               type: 'text',
-              text: `请帮我写一篇关于"${topic}"的${type}。`
+              text: `Please help me write a ${type} about "${topic}".`
             }
           }
         ]
@@ -347,59 +347,59 @@ ${referenceContent || '暂无参考资料'}
     return [
       {
         name: 'note-search-assistant',
-        description: '笔记搜索助手 - 帮助搜索和查找思源笔记中的信息',
+        description: 'Note search assistant - search and find information in SiYuan notes',
         arguments: [
-          { name: 'query', description: '搜索关键词', required: true, type: 'string' },
-          { name: 'context', description: '额外的上下文信息', type: 'string' },
-          { name: 'limit', description: '搜索结果数量限制', type: 'number', default: 10 }
+          { name: 'query', description: 'Search keyword', required: true, type: 'string' },
+          { name: 'context', description: 'Additional context information', type: 'string' },
+          { name: 'limit', description: 'Maximum number of search results', type: 'number', default: 10 }
         ]
       },
       {
         name: 'document-creator',
-        description: '文档创建助手 - 帮助创建结构化的文档内容',
+        description: 'Document creation assistant - create structured document content',
         arguments: [
-          { name: 'title', description: '文档标题', type: 'string' },
-          { name: 'topic', description: '文档主题', required: true, type: 'string' },
-          { name: 'notebook', description: '目标笔记本', type: 'string' },
-          { name: 'outline', description: '文档大纲要求', type: 'string' }
+          { name: 'title', description: 'Document title', type: 'string' },
+          { name: 'topic', description: 'Document topic', required: true, type: 'string' },
+          { name: 'notebook', description: 'Target notebook', type: 'string' },
+          { name: 'outline', description: 'Document outline requirements', type: 'string' }
         ]
       },
       {
         name: 'content-summarizer',
-        description: '内容总结助手 - 总结和分析文档内容',
+        description: 'Content summarization assistant - summarize and analyze document content',
         arguments: [
-          { name: 'content', description: '要总结的内容', required: true, type: 'string' },
-          { name: 'sessionId', description: '会话ID（用于获取上下文）', type: 'string' },
-          { name: 'style', description: '总结风格', type: 'string', default: 'concise' }
+          { name: 'content', description: 'Content to summarize', required: true, type: 'string' },
+          { name: 'sessionId', description: 'Session ID (for context retrieval)', type: 'string' },
+          { name: 'style', description: 'Summary style (concise/detailed/bullet/academic)', type: 'string', default: 'concise' }
         ]
       },
       {
         name: 'knowledge-connector',
-        description: '知识连接助手 - 发现和建立知识之间的联系',
+        description: 'Knowledge connection assistant - discover and build connections between ideas',
         arguments: [
-          { name: 'topic', description: '分析主题', required: true, type: 'string' },
-          { name: 'sessionId', description: '会话ID（用于获取上下文）', type: 'string' },
-          { name: 'depth', description: '分析深度', type: 'string', default: 'medium' }
+          { name: 'topic', description: 'Topic to analyze', required: true, type: 'string' },
+          { name: 'sessionId', description: 'Session ID (for context retrieval)', type: 'string' },
+          { name: 'depth', description: 'Analysis depth (shallow/medium/deep)', type: 'string', default: 'medium' }
         ]
       },
       {
         name: 'learning-path-planner',
-        description: '学习路径规划助手 - 制定个性化的学习计划',
+        description: 'Learning path planner - create personalized study plans',
         arguments: [
-          { name: 'subject', description: '学习主题', required: true, type: 'string' },
-          { name: 'level', description: '学习水平', type: 'string', default: 'beginner' },
-          { name: 'goals', description: '学习目标', type: 'string' },
-          { name: 'timeframe', description: '时间安排', type: 'string' }
+          { name: 'subject', description: 'Subject to learn', required: true, type: 'string' },
+          { name: 'level', description: 'Current level (beginner/intermediate/advanced)', type: 'string', default: 'beginner' },
+          { name: 'goals', description: 'Learning goals', type: 'string' },
+          { name: 'timeframe', description: 'Time available for study', type: 'string' }
         ]
       },
       {
         name: 'writing-assistant',
-        description: '写作助手 - 帮助创作各种类型的文档',
+        description: 'Writing assistant - help create various types of documents',
         arguments: [
-          { name: 'topic', description: '写作主题', required: true, type: 'string' },
-          { name: 'type', description: '文档类型', type: 'string', default: 'article' },
-          { name: 'audience', description: '目标受众', type: 'string', default: 'general' },
-          { name: 'tone', description: '写作风格', type: 'string', default: 'professional' }
+          { name: 'topic', description: 'Writing topic', required: true, type: 'string' },
+          { name: 'type', description: 'Document type (article/blog/report/summary/tutorial)', type: 'string', default: 'article' },
+          { name: 'audience', description: 'Target audience', type: 'string', default: 'general' },
+          { name: 'tone', description: 'Writing tone', type: 'string', default: 'professional' }
         ]
       }
     ];
