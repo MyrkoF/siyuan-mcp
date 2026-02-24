@@ -36,18 +36,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 // ── MCP Resources ───────────────────────────────────────────────────────────
+// Only expose static guide resources at startup (no SiYuan API calls).
+// Dynamic SiYuan resources (notebooks, docs) are accessible via tools (docs_list, etc.).
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  try {
-    const result = await resourceDirectory.discoverResources({}, { limit: 100 });
-    return {
-      resources: result.resources.map(r => ({
-        uri: r.uri, name: r.name, description: r.description, mimeType: r.mimeType
-      }))
-    };
-  } catch (error) {
-    logger.error({ error }, 'Failed to list resources');
-    return { resources: [] };
-  }
+  const resources = resourceDirectory.listStaticResources();
+  return {
+    resources: resources.map(r => ({
+      uri: r.uri, name: r.name, description: r.description, mimeType: r.mimeType
+    }))
+  };
 });
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {

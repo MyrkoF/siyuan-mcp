@@ -470,6 +470,17 @@ export class ResourceDirectory {
     }
   }
 
+  // Return only static guide resources (no SiYuan API calls — safe for startup)
+  listStaticResources(): MCPResource[] {
+    return Object.entries(STATIC_GUIDES).map(([key, guide]) => ({
+      uri: `siyuan://static/${key}`,
+      name: guide.name,
+      description: guide.description,
+      mimeType: 'text/markdown',
+      metadata: { type: 'static' }
+    }));
+  }
+
   // 获取单个资源内容
   async getResourceContent(uri: string): Promise<string> {
     try {
