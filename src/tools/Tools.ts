@@ -475,7 +475,7 @@ export class MergedTools {
       },
       {
         name: 'doc_delete',
-        description: 'Delete a document by ID. Use this (not blocks_delete) for documents.',
+        description: 'Delete a document by ID. Use this (not blocks_delete) for documents. Supports dryRun to preview what would be deleted.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -486,6 +486,10 @@ export class MergedTools {
             cascade: {
               type: 'boolean',
               description: 'false (default): refuse if children exist and return their list. true: delete all children depth-first then parent. All goes to trash.'
+            },
+            dryRun: {
+              type: 'boolean',
+              description: 'true: return the list of documents that would be deleted without touching anything. Useful to preview a cascade deletion before executing it.'
             }
           },
           required: ['id']
@@ -1326,7 +1330,7 @@ export class MergedTools {
           return await this.handleDocRename(args.id, args.title);
 
         case 'doc_delete':
-          return await this.handleDocDelete(args.id, args.cascade ?? false);
+          return await this.handleDocDelete(args.id, args.cascade ?? false, args.dryRun ?? false);
 
         case 'doc_move':
           return await this.handleDocMove(args.fromIds, args.toId);
@@ -1868,15 +1872,22 @@ export class MergedTools {
     }
   }
 
-  private async handleDocDelete(id: string, cascade: boolean): Promise<StandardResponse> {
+  private async handleDocDelete(id: string, cascade: boolean, dryRun: boolean): Promise<StandardResponse> {
     try {
       if (!id?.trim()) {
         return createStandardResponse(false, 'Missing parameter', null, 'id is required');
       }
-      const result = await this.docService.deleteDocument(id, cascade);
-      const msg = result.childCount > 0
-        ? `Document deleted with ${result.childCount} child(ren) (SiYuan trash)`
-        : 'Document deleted (SiYuan trash)';
+      const result = await this.docService.deleteDocument(id, cascade, dryRun);
+      let msg: string;
+      if (dryRun) {
+        msg = result.childCount > 0
+          ? `[DRY RUN] Would delete document + ${result.childCount} child(ren) — nothing was touched`
+          : '[DRY RUN] Would delete 1 document — nothing was touched';
+      } else {
+        msg = result.childCount > 0
+          ? `Document deleted with ${result.childCount} child(ren) (SiYuan trash)`
+          : 'Document deleted (SiYuan trash)';
+      }
       return createStandardResponse(true, msg, result);
     } catch (error: any) {
       return createStandardResponse(false, 'Deletion refused or failed', null, error?.message);

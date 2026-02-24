@@ -1,17 +1,18 @@
 /**
  * Document Service
- * CRUD complet sur les documents SiYuan via /api/filetree/*
+ * Full CRUD for SiYuan documents via /api/filetree/*
  *
- * Endpoints utilisés :
- * - GET  /api/export/exportMdContent   → contenu Markdown propre
- * - POST /api/filetree/renameDocByID   → renommer
- * - POST /api/filetree/removeDocByID   → supprimer (1 doc)
- * - POST /api/filetree/moveDocsByID    → déplacer
- * - POST /api/query/sql                → trouver les enfants avant suppression
+ * Endpoints used:
+ * - GET  /api/export/exportMdContent   → clean Markdown content
+ * - POST /api/filetree/renameDocByID   → rename
+ * - POST /api/filetree/removeDocByID   → delete (one doc)
+ * - POST /api/filetree/moveDocsByID    → move
+ * - POST /api/query/sql                → find children before deletion
  *
- * Comportement de deleteDocument :
- * - cascade:false (défaut) → si enfants existent : REFUS avec liste des enfants
- * - cascade:true           → supprime enfants depth-first puis parent (tout va en corbeille)
+ * deleteDocument behaviour:
+ * - cascade:false (default) → if children exist: REFUSED with child list
+ * - cascade:true            → deletes children depth-first then parent (all go to trash)
+ * - dryRun:true             → returns what would be deleted WITHOUT touching anything
  */
 
 import { SiyuanClient } from '../siyuanClient';
@@ -33,6 +34,7 @@ export interface DocDeleteResult {
   id: string;
   deletedChildren: Array<{ id: string; hPath: string }>;
   childCount: number;
+  dryRun?: boolean;
 }
 
 export class DocService {
@@ -42,21 +44,21 @@ export class DocService {
     this.client = client;
   }
 
-  // ==================== API publique ====================
+  // ==================== Public API ====================
 
   /**
-   * Retourne le contenu Markdown d'un document.
-   * Utilise /api/export/exportMdContent (plus propre que getBlockKramdown).
+   * Returns the Markdown content of a document.
+   * Uses /api/export/exportMdContent (cleaner than getBlockKramdown).
    */
   async getDocument(id: string): Promise<DocContent> {
-    if (!id?.trim()) throw new Error('id est requis');
+    if (!id?.trim()) throw new Error('id is required');
 
     const response = await this.client.request('/api/export/exportMdContent', {
       id: id.trim()
     });
 
     if (!response || response.code !== 0) {
-      throw new Error(`Impossible de lire le document "${id}": ${response?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`Cannot read document "${id}": ${response?.msg ?? 'unknown error'}`);
     }
 
     return {
@@ -67,12 +69,12 @@ export class DocService {
   }
 
   /**
-   * Renomme un document.
-   * Utilise /api/filetree/renameDocByID.
+   * Renames a document.
+   * Uses /api/filetree/renameDocByID.
    */
   async renameDocument(id: string, title: string): Promise<void> {
-    if (!id?.trim()) throw new Error('id est requis');
-    if (!title?.trim()) throw new Error('title est requis');
+    if (!id?.trim()) throw new Error('id is required');
+    if (!title?.trim()) throw new Error('title is required');
 
     const response = await this.client.request('/api/filetree/renameDocByID', {
       id: id.trim(),
@@ -80,69 +82,78 @@ export class DocService {
     });
 
     if (!response || response.code !== 0) {
-      throw new Error(`Impossible de renommer le document "${id}": ${response?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`Cannot rename document "${id}": ${response?.msg ?? 'unknown error'}`);
     }
   }
 
   /**
-   * Supprime un document (envoi dans la corbeille SiYuan — récupérable).
+   * Deletes a document (sends to SiYuan trash — recoverable).
    *
-   * cascade:false (défaut) — si des enfants existent, REFUSE et retourne leur liste.
-   *                          Empêche l'orphelinage silencieux.
-   * cascade:true           — supprime tous les enfants depth-first, puis le parent.
-   *                          Tout va en corbeille (récupérable).
+   * cascade:false (default) — if children exist, REFUSES and lists them.
+   *                           Prevents silent orphaning.
+   * cascade:true            — deletes all children depth-first, then the parent.
+   *                           Everything goes to trash (recoverable).
+   * dryRun:true             — returns what WOULD be deleted without touching anything.
    *
-   * @param id      — Block ID du document à supprimer
-   * @param cascade — false: refus si enfants | true: suppression récursive
+   * @param id      — Block ID of the document to delete
+   * @param cascade — false: refuse if children | true: recursive deletion
+   * @param dryRun  — true: preview only, no actual deletion
    */
-  async deleteDocument(id: string, cascade: boolean = false): Promise<DocDeleteResult> {
-    if (!id?.trim()) throw new Error('id est requis');
+  async deleteDocument(id: string, cascade: boolean = false, dryRun: boolean = false): Promise<DocDeleteResult> {
+    if (!id?.trim()) throw new Error('id is required');
 
     const docId = id.trim();
 
-    // 1. Récupérer les infos du document (path + notebook)
+    // 1. Fetch document info (path + notebook)
     const info = await this.fetchDocInfo(docId);
     if (!info) {
-      throw new Error(`Document "${docId}" introuvable`);
+      throw new Error(`Document "${docId}" not found`);
     }
 
-    // 2. Trouver tous les descendants
+    // 2. Find all descendants
     const children = await this.fetchDescendants(info.box, info.path);
 
-    // 3. Si enfants présents et cascade désactivé → refus explicite
+    // 3. If children exist and cascade is off → explicit refusal
     if (children.length > 0 && !cascade) {
       const list = children.map(c => `  • "${c.hPath}" (${c.id})`).join('\n');
       throw new Error(
-        `Suppression refusée : le document a ${children.length} enfant(s).\n` +
-        `Passez cascade:true pour supprimer récursivement, ou déplacez les enfants d'abord.\n` +
-        `Enfants :\n${list}`
+        `Deletion refused: document has ${children.length} child(ren).\n` +
+        `Use cascade:true to delete recursively, or move the children first.\n` +
+        `Children:\n${list}`
       );
     }
 
-    // 4. Cascade : supprimer les enfants du plus profond au moins profond
-    const deletedChildren: Array<{ id: string; hPath: string }> = [];
-    if (cascade && children.length > 0) {
-      // Trier par profondeur de path décroissante (plus profond = plus de '/' dans le path)
-      const sorted = [...children].sort(
-        (a, b) => b.path.split('/').length - a.path.split('/').length
-      );
-      for (const child of sorted) {
+    // 4. Build the list of children to delete (sorted deepest-first)
+    const sortedChildren = [...children].sort(
+      (a, b) => b.path.split('/').length - a.path.split('/').length
+    );
+    const deletedChildren: Array<{ id: string; hPath: string }> = cascade
+      ? sortedChildren.map(c => ({ id: c.id, hPath: c.hPath }))
+      : [];
+
+    // 5. Dry run: return preview without touching anything
+    if (dryRun) {
+      return { id: docId, deletedChildren, childCount: deletedChildren.length, dryRun: true };
+    }
+
+    // 6. Cascade: delete children deepest-first
+    if (cascade && sortedChildren.length > 0) {
+      for (const child of sortedChildren) {
         const resp = await this.client.request('/api/filetree/removeDocByID', { id: child.id });
         if (!resp || resp.code !== 0) {
           throw new Error(
-            `Suppression de l'enfant "${child.hPath}" (${child.id}) échouée: ${resp?.msg ?? 'erreur inconnue'}`
+            `Failed to delete child "${child.hPath}" (${child.id}): ${resp?.msg ?? 'unknown error'}`
           );
         }
-        deletedChildren.push({ id: child.id, hPath: child.hPath });
       }
     }
 
-    // 5. Supprimer le parent
+    // 7. Delete the parent
     const response = await this.client.request('/api/filetree/removeDocByID', { id: docId });
 
     if (!response || response.code !== 0) {
       throw new Error(
-        `Impossible de supprimer le document "${docId}": ${response?.msg ?? 'erreur inconnue'}`
+        `Cannot delete document "${docId}": ${response?.msg ?? 'unknown error'}`
       );
     }
 
@@ -150,15 +161,15 @@ export class DocService {
   }
 
   /**
-   * Déplace un ou plusieurs documents vers un parent cible.
-   * Utilise /api/filetree/moveDocsByID.
+   * Moves one or more documents to a target parent.
+   * Uses /api/filetree/moveDocsByID.
    *
-   * @param fromIds — IDs des documents à déplacer (au moins 1)
-   * @param toId    — ID du document parent cible OU ID du notebook cible
+   * @param fromIds — IDs of documents to move (at least 1)
+   * @param toId    — target parent document ID OR target notebook ID
    */
   async moveDocuments(fromIds: string[], toId: string): Promise<void> {
-    if (!fromIds?.length) throw new Error('Au moins un fromId est requis');
-    if (!toId?.trim()) throw new Error('toId est requis');
+    if (!fromIds?.length) throw new Error('At least one fromId is required');
+    if (!toId?.trim()) throw new Error('toId is required');
 
     const response = await this.client.request('/api/filetree/moveDocsByID', {
       fromIDs: fromIds,
@@ -166,15 +177,15 @@ export class DocService {
     });
 
     if (!response || response.code !== 0) {
-      throw new Error(`Impossible de déplacer les documents: ${response?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`Cannot move documents: ${response?.msg ?? 'unknown error'}`);
     }
   }
 
-  // ==================== Helpers privés ====================
+  // ==================== Private helpers ====================
 
   /**
-   * Récupère les infos d'un document via SQL (box, path, hpath).
-   * Retourne null si le document n'existe pas.
+   * Fetches document info via SQL (box, path, hpath).
+   * Returns null if the document does not exist.
    */
   private async fetchDocInfo(id: string): Promise<DocInfo | null> {
     const resp = await this.client.request('/api/query/sql', {
@@ -191,17 +202,17 @@ export class DocService {
   }
 
   /**
-   * Trouve tous les documents descendants d'un document via SQL.
-   * Utilise le préfixe de path (parent.sy → parent/).
+   * Finds all descendant documents via SQL.
+   * Uses the path prefix (parent.sy → parent/).
    *
    * @param box        — notebook ID
-   * @param parentPath — path du parent (ex: "/foo/bar.sy")
+   * @param parentPath — parent path (e.g. "/foo/bar.sy")
    */
   private async fetchDescendants(
     box: string,
     parentPath: string
   ): Promise<Array<{ id: string; hPath: string; path: string }>> {
-    // Les enfants sont dans le dossier qui a le même nom que le fichier parent sans .sy
+    // Children live in the folder named after the parent file (without .sy extension)
     const folderPrefix = parentPath.replace(/\.sy$/, '') + '/';
 
     const resp = await this.client.request('/api/query/sql', {
