@@ -515,7 +515,7 @@ export class MergedTools {
       // ==================== Attribute View (Database) Tools ====================
       {
         name: 'av_list_databases',
-        description: 'List all Attribute View databases',
+        description: 'List all Attribute View databases. Then call av_render_database(id) to read rows and column values.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -529,7 +529,7 @@ export class MergedTools {
       },
       {
         name: 'av_render_database',
-        description: 'Read full database: columns and all rows',
+        description: 'Read ALL rows and column values of an Attribute View database (status, priority, dates, etc.). Use this — not SQL, not blocks_get — to read typed database content.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -637,7 +637,7 @@ export class MergedTools {
       },
       {
         name: 'av_query_database',
-        description: 'Filter database rows by column value',
+        description: 'Filter Attribute View database rows by column value (case-insensitive partial match). Use after av_list_databases to get avId.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1198,7 +1198,22 @@ export class MergedTools {
           const notebooks = (nbResp?.data?.notebooks || nbResp?.notebooks || []) as any[];
           const databases = await this.avService.listDatabases() as any[];
 
-          const lines: string[] = ['## SiYuan Workspace Map', ''];
+          const lines: string[] = [
+            '## SiYuan Workspace MAP',
+            '',
+            '### IMPORTANT — Tool quick-reference (always use these, never SQL)',
+            '| Goal | Tool to call |',
+            '|------|-------------|',
+            '| Read database rows + column values | `av_render_database(avId)` |',
+            '| Filter database rows | `av_query_database(avId, column:"Status", value:"In Progress")` |',
+            '| List documents in notebook | `docs_list(notebookId)` |',
+            '| Read document content | `doc_get(docId)` |',
+            '| Create document | `docs_create(notebookId, path:"/Name", title:"Name")` |',
+            '| Full workflow guide | read resource `siyuan://static/workflows` |',
+            '',
+            '---',
+            '',
+          ];
 
           // Notebooks + 2 levels of documents
           lines.push('### Notebooks & Documents');
@@ -1220,16 +1235,18 @@ export class MergedTools {
             } catch { lines.push('  (could not list documents)'); }
           }
 
-          // AV Databases
-          lines.push('\n### Attribute View Databases');
+          // AV Databases — with inline tool hints
+          lines.push('\n---', '\n### Attribute View Databases');
+          lines.push('To read ANY database: call `av_render_database(avId)` — returns all rows + all column values.\n');
           for (const db of databases) {
-            lines.push(`- ${db.name}: \`${db.id}\` (${db.columnCount} cols, ${db.rowCount} rows)`);
+            lines.push(`- **${db.name}** \`${db.id}\` (${db.columnCount} cols, ${db.rowCount} rows)`);
+            lines.push(`  → \`av_render_database('${db.id}')\``);
           }
 
           lines.push(
             '',
             '---',
-            'Paste into Claude Desktop → Project Instructions to skip ID discovery each session.',
+            'Paste this entire block into Claude Desktop → Project Instructions.',
           );
           return createStandardResponse(true, 'Workspace map generated', { map: lines.join('\n') });
         }
