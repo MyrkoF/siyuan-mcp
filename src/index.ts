@@ -36,10 +36,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 // ── MCP Resources ───────────────────────────────────────────────────────────
-// Only expose static guide resources at startup (no SiYuan API calls).
-// Dynamic SiYuan resources (notebooks, docs) are accessible via tools (docs_list, etc.).
+// Expose static guides + notebooks. Falls back to static-only if SiYuan is unavailable.
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  const resources = resourceDirectory.listStaticResources();
+  const resources = await resourceDirectory.listStartupResources();
   return {
     resources: resources.map(r => ({
       uri: r.uri, name: r.name, description: r.description, mimeType: r.mimeType

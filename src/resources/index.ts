@@ -324,7 +324,7 @@ export class ResourceDirectory {
       return notebooks.map((notebook: any) => ({
         uri: `siyuan://notebook/${notebook.id}`,
         name: notebook.name || 'Unnamed Notebook',
-        description: `笔记本: ${notebook.name || 'Unnamed Notebook'}`,
+        description: `Notebook: ${notebook.name || 'Unnamed Notebook'}`,
         mimeType: 'application/x-siyuan-notebook',
         metadata: {
           type: 'notebook',
@@ -360,7 +360,7 @@ export class ResourceDirectory {
           resources.push({
             uri: `siyuan://document/${doc.id}`,
             name: doc.name,
-            description: `文档: ${doc.path}`,
+            description: `Document: ${doc.path}`,
             mimeType: 'application/x-siyuan-document',
             metadata: {
               type: 'document',
@@ -387,7 +387,7 @@ export class ResourceDirectory {
             resources.push({
               uri: `siyuan://document/${doc.id}`,
               name: doc.name,
-              description: `文档: ${doc.path} (${notebook.name})`,
+              description: `Document: ${doc.path} (${notebook.name})`,
               mimeType: 'application/x-siyuan-document',
               metadata: {
                 type: 'document',
@@ -442,7 +442,7 @@ export class ResourceDirectory {
             resources.push({
               uri: `siyuan://block/${result.id}`,
               name: (result.content || result.markdown || '').substring(0, 100) + '...' || 'Untitled Block',
-              description: `块: ${result.type || 'block'} - ${(result.content || result.markdown || '').substring(0, 200)}...`,
+              description: `Block: ${result.type || 'block'} - ${(result.content || result.markdown || '').substring(0, 200)}...`,
               mimeType: 'application/x-siyuan-block',
               metadata: {
                 type: 'block',
@@ -479,6 +479,19 @@ export class ResourceDirectory {
       mimeType: 'text/markdown',
       metadata: { type: 'static' }
     }));
+  }
+
+  // Return static guides + notebooks from SiYuan (for MCP ListResources at startup).
+  // If SiYuan is unavailable, falls back to static guides only — no error thrown.
+  async listStartupResources(): Promise<MCPResource[]> {
+    const resources = this.listStaticResources();
+    try {
+      const notebooks = await this.discoverNotebooks({});
+      resources.push(...notebooks);
+    } catch (error) {
+      logger.warn({ error }, 'SiYuan unavailable at startup — returning static resources only');
+    }
+    return resources;
   }
 
   // 获取单个资源内容
