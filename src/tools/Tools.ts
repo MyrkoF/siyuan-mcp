@@ -694,6 +694,11 @@ export class MergedTools {
 
       // ==================== System & Infrastructure ====================
       {
+        name: 'siyuan_workspace_map',
+        description: 'Generate a workspace map (all notebook + database IDs) ready to paste into Claude Desktop Project Instructions',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
         name: 'system_health',
         description: 'Check SiYuan server connection',
         inputSchema: { type: 'object', properties: {}, required: [] }
@@ -1188,6 +1193,31 @@ export class MergedTools {
           return await this.handleAvCreateDatabase(args.notebookId, args.name, args.columns);
 
         // ==================== System & Infrastructure ====================
+        case 'siyuan_workspace_map': {
+          const nbResp = await this.client.request('/api/notebook/lsNotebooks');
+          const notebooks = (nbResp?.data?.notebooks || nbResp?.notebooks || []) as any[];
+          const databases = await this.avService.listDatabases() as any[];
+
+          const lines: string[] = [
+            '## SiYuan Workspace Map',
+            '',
+            '### Notebooks',
+          ];
+          for (const nb of notebooks) {
+            lines.push(`- ${nb.name}: \`${nb.id}\``);
+          }
+          lines.push('', '### Attribute View Databases');
+          for (const db of databases) {
+            lines.push(`- ${db.name}: \`${db.id}\``);
+          }
+          lines.push(
+            '',
+            '---',
+            'Paste this block into your Claude Desktop Project Instructions so Claude knows your IDs without having to discover them each session.',
+          );
+          return createStandardResponse(true, 'Workspace map generated', { map: lines.join('\n') });
+        }
+
         case 'system_health':
           return createStandardResponse(true, 'Health check successful', await this.client.checkHealth());
 

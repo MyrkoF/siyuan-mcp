@@ -2,6 +2,160 @@ import { createSiyuanClient } from '../siyuanClient';
 import logger from '../logger';
 import { PaginationOptions } from '../interfaces/index.js';
 
+// ── Static guide resources ────────────────────────────────────────────────────
+const STATIC_GUIDES: Record<string, { name: string; description: string; content: string }> = {
+  guide: {
+    name: 'SiYuan MCP — Object Model & Rules',
+    description: 'SiYuan object types, IDs, and critical rules for correct tool use',
+    content: `# SiYuan MCP — Object Model & Rules
+
+## Object Types
+
+- **Notebook**: top-level container. Has an ID. Get IDs with: list_notebooks
+- **Document**: root block (type=d), identified by its rootID.
+  Browse with: docs_list(notebookId) | Read with: doc_get(id)
+- **Block**: content unit inside a document (paragraph, heading, list, code, table, etc.)
+  Identified by blockID. Use: blocks_get / blocks_create / blocks_update / blocks_delete
+- **Attribute View (AV)**: typed database (rows + typed columns), stored separately from documents.
+  All AV operations use: av_list_databases / av_render_database / av_create_row / av_update_row / av_delete_row
+  Never use SQL to read AV custom column values — use av_render_database only.
+
+## Critical Rules
+
+1. DELETE a document   → doc_delete(id)          ← NEVER blocks_delete
+2. DELETE a content block → blocks_delete(id)     ← NEVER doc_delete
+3. AV columns: always identify by NAME, never by array index
+4. AV relation.blockIDs = row IDs (not document IDs — do not confuse)
+5. AV isDetached:true = standalone row, has no linked document
+6. Always try/catch av_render_database (databases may be in trash)
+
+## Getting IDs
+
+- Notebook IDs  : list_notebooks
+- Document IDs  : docs_list(notebookId) or search_content(query) → rootID field
+- Block IDs     : doc_get(docId) returns blocks, or search_content
+- AV database IDs: av_list_databases([nameFilter])
+- AV row IDs    : av_render_database(avId) → view.rows[].id
+- AV column IDs : av_render_database(avId) → view.columns[].id  (prefer NAME over ID)
+
+## AV Column Value Formats (for av_create_row / av_update_row)
+
+  text      → "plain text"
+  number    → 42
+  select    → "Option Name"
+  mSelect   → ["Option1", "Option2"]
+  date      → 1704067200000  (timestamp ms)
+  checkbox  → true | false
+  url       → "https://..."
+  email     → "user@example.com"
+  phone     → "+1-555-0100"
+`,
+  },
+  workflows: {
+    name: 'SiYuan MCP — CRUD Workflows',
+    description: 'Step-by-step tool sequences for common Create / Read / Update / Delete operations',
+    content: `# SiYuan MCP — CRUD Workflows
+
+## READ / BROWSE
+
+Browse workspace:
+  list_notebooks
+  → docs_list(notebookId)
+  → doc_get(docId)
+
+Search notes:
+  search_content(query)          full-text, returns blocks
+  quick_text_search(text)        fast, returns matching docs
+  advanced_search(filters)       with type/notebook/date filters
+
+Read a database (AV):
+  av_list_databases([nameFilter:"DB-"])
+  → av_render_database(avId)     returns columns[] + rows[]
+  → av_query_database(avId, column:"Status", value:"In Progress")
+
+---
+
+## CREATE
+
+Create notebook:
+  create_notebook(name)
+
+Create document:
+  list_notebooks
+  → docs_create(notebookId, path:"/MyDoc", title:"My Doc")
+
+Create child document (under a parent):
+  create_subdocument(notebookId, parentPath:"/Parent", title:"Child")
+
+Add content block to a document:
+  blocks_create(content:"# My heading", parentID:docId)
+
+Create AV row:
+  av_render_database(avId)       note column names
+  → av_create_row(avId, name:"Row title", values:{ Status:"In Progress", Priority:"High" })
+
+Create AV database:
+  list_notebooks
+  → av_create_database(notebookId, name:"DB-MyDB", columns:[
+      { name:"Name",     type:"block"  },
+      { name:"Status",   type:"select" },
+      { name:"Priority", type:"select" },
+      { name:"Due",      type:"date"   },
+      { name:"Done",     type:"checkbox" }
+    ])
+
+---
+
+## UPDATE
+
+Update block content:
+  blocks_update(blockId, content:"new markdown")
+
+Update AV cell values:
+  av_render_database(avId)       get rowId + column names
+  → av_update_row(avId, rowId, updates:{ Status:"Done", Priority:"Low" })
+
+Rename document:
+  doc_rename(docId, title:"New Title")
+
+Move document:
+  doc_move(fromIds:[docId], toId:newParentDocId)
+
+Manage tags on a block:
+  manage_block_tags(blockId, operation:"add", tags:["tag1","tag2"])
+
+---
+
+## DELETE
+
+Delete a document (and all its content):
+  doc_delete(docId)              ← ALWAYS use this for documents
+
+Delete a content block (paragraph, heading, list item…):
+  blocks_delete(blockId)         ← never use for documents
+
+Delete AV rows:
+  av_delete_row(avId, rowIds:["id1","id2"])
+
+---
+
+## BATCH OPERATIONS
+
+Create multiple blocks at once:
+  batch_create_blocks(requests:[{content, parentID}, ...])
+
+Update multiple blocks at once:
+  batch_update_blocks(requests:[{id, content}, ...])
+
+Delete multiple blocks at once:
+  batch_delete_blocks(blockIds:["id1","id2"])    ← not for documents
+
+Run multiple searches in parallel:
+  batch_search_queries(queries:["query1","query2"], limit:5)
+`,
+  },
+};
+
 // MCP资源类型定义
 export interface MCPResource {
   uri: string;
@@ -55,6 +209,20 @@ export class ResourceDirectory {
     try {
       const resources: MCPResource[] = [];
       let total = 0;
+
+      // Always include static guide resources first
+      if (!filter.type) {
+        for (const [key, guide] of Object.entries(STATIC_GUIDES)) {
+          resources.push({
+            uri: `siyuan://static/${key}`,
+            name: guide.name,
+            description: guide.description,
+            mimeType: 'text/markdown',
+            metadata: { type: 'static' }
+          });
+          total += 1;
+        }
+      }
 
       // 根据过滤器类型获取不同的资源
       if (!filter.type || filter.type === 'notebook') {
@@ -264,8 +432,14 @@ export class ResourceDirectory {
   async getResourceContent(uri: string): Promise<string> {
     try {
       const { type, id } = this.parseResourceURI(uri);
-      
+
       switch (type) {
+        case 'static': {
+          const guide = STATIC_GUIDES[id];
+          if (!guide) throw new Error(`Unknown static guide: ${id}`);
+          return guide.content;
+        }
+
         case 'notebook':
           const notebooksResponse = await this.siyuanClient.request('/api/notebook/lsNotebooks', {});
           const notebooks = notebooksResponse.data?.notebooks || [];
@@ -306,8 +480,15 @@ export class ResourceDirectory {
   async getResourceMetadata(uri: string): Promise<Record<string, any>> {
     try {
       const { type, id } = this.parseResourceURI(uri);
-      
+
       switch (type) {
+        case 'static': {
+          const guide = STATIC_GUIDES[id];
+          return guide
+            ? { type: 'static', name: guide.name, description: guide.description, mimeType: 'text/markdown' }
+            : {};
+        }
+
         case 'notebook':
           const notebooksResponse = await this.siyuanClient.request('/api/notebook/lsNotebooks', {});
           const notebooks = notebooksResponse.data?.notebooks || [];
@@ -334,15 +515,11 @@ export class ResourceDirectory {
 
   // 解析资源URI
   private parseResourceURI(uri: string): { type: string; id: string } {
-    const match = uri.match(/^siyuan:\/\/(\w+)\/(.+)$/);
+    const match = uri.match(/^siyuan:\/\/(\w+)\/?(.*)$/);
     if (!match) {
       throw new Error(`Invalid resource URI: ${uri}`);
     }
-    
-    return {
-      type: match[1],
-      id: match[2]
-    };
+    return { type: match[1], id: match[2] || '' };
   }
 
   // 排序资源
