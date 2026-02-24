@@ -17,6 +17,11 @@ import { ReferenceService } from '../services/reference-service';
 import { AdvancedSearchService } from '../services/advanced-search-service';
 import { DocService } from '../services/doc-service';
 
+import { contextManager } from '../contextStore/manager';
+import { resourceDirectory } from '../resources';
+import { promptTemplateManager } from '../prompts';
+import { createPortDiscovery } from '../utils/portDiscovery';
+
 // 创建客户端实例 — env vars résolues dans createSiyuanClient()
 const siyuanClient = createSiyuanClient({
   autoDiscoverPort: true
@@ -183,7 +188,7 @@ export class MergedTools {
       },
       {
         name: 'batch_delete_blocks',
-        description: 'Batch delete multiple blocks',
+        description: 'Batch delete multiple content blocks (paragraphs, headings, etc.). Do NOT use for documents — use doc_delete instead.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -685,7 +690,357 @@ export class MergedTools {
           },
           required: ['notebookId', 'name']
         }
-      }
+      },
+
+      // ==================== System & Infrastructure ====================
+      {
+        name: 'system_health',
+        description: 'Check SiYuan connection status and server health',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        name: 'system_discover_ports',
+        description: 'Auto-discover the SiYuan port (scans 6806–6808)',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        name: 'system_cache_stats',
+        description: 'Get cache statistics',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        name: 'system_retry_stats',
+        description: 'Get retry/resilience statistics',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      // ==================== Blocks ====================
+      {
+        name: 'blocks_get',
+        description: 'Get block content (kramdown) by ID',
+        inputSchema: {
+          type: 'object',
+          properties: { id: { type: 'string', description: 'Block ID' } },
+          required: ['id']
+        }
+      },
+      {
+        name: 'blocks_create',
+        description: 'Insert a new block',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            content: { type: 'string', description: 'Block content (Markdown)' },
+            parentID: { type: 'string', description: 'Parent block ID (optional)' },
+            previousID: { type: 'string', description: 'Previous sibling block ID (optional)' }
+          },
+          required: ['content']
+        }
+      },
+      {
+        name: 'blocks_update',
+        description: 'Update a block content by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Block ID' },
+            content: { type: 'string', description: 'New block content (Markdown)' }
+          },
+          required: ['id', 'content']
+        }
+      },
+      {
+        name: 'blocks_delete',
+        description: 'Delete a content block (paragraph, heading, list item, code block, etc.) by ID. Do NOT use for documents — use doc_delete instead.',
+        inputSchema: {
+          type: 'object',
+          properties: { id: { type: 'string', description: 'Block ID' } },
+          required: ['id']
+        }
+      },
+      {
+        name: 'blocks_move',
+        description: 'Move a block to a new position',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Block ID' },
+            parentID: { type: 'string', description: 'New parent block ID' },
+            previousID: { type: 'string', description: 'Previous sibling block ID (optional)' }
+          },
+          required: ['id', 'parentID']
+        }
+      },
+      // ==================== Documents ====================
+      {
+        name: 'docs_create',
+        description: 'Create a new document in a notebook',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            notebook: { type: 'string', description: 'Notebook ID' },
+            path: { type: 'string', description: 'Document path' },
+            title: { type: 'string', description: 'Document title' },
+            content: { type: 'string', description: 'Document content (optional)' }
+          },
+          required: ['notebook', 'path', 'title']
+        }
+      },
+      {
+        name: 'docs_list',
+        description: 'List documents in a notebook by path',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            notebook: { type: 'string', description: 'Notebook ID' },
+            path: { type: 'string', description: 'Path (optional, defaults to root)' }
+          },
+          required: ['notebook']
+        }
+      },
+      // ==================== Assets ====================
+      {
+        name: 'assets_upload',
+        description: 'Upload a file asset to the workspace',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            file: { type: 'string', description: 'File path or base64-encoded content' },
+            assetsDirPath: { type: 'string', description: 'Assets directory path' }
+          },
+          required: ['file', 'assetsDirPath']
+        }
+      },
+      {
+        name: 'assets_list',
+        description: 'List assets attached to a document',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Document ID' },
+            type: { type: 'string', enum: ['all', 'images'], description: 'Asset type', default: 'all' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'assets_unused',
+        description: 'Find unused asset files in the workspace',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        name: 'assets_missing',
+        description: 'Find missing (referenced but absent) asset files',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        name: 'assets_rename',
+        description: 'Rename an asset file',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            oldPath: { type: 'string', description: 'Original path' },
+            newPath: { type: 'string', description: 'New path' }
+          },
+          required: ['oldPath', 'newPath']
+        }
+      },
+      {
+        name: 'assets_ocr',
+        description: 'OCR text recognition on an image asset',
+        inputSchema: {
+          type: 'object',
+          properties: { path: { type: 'string', description: 'Image path' } },
+          required: ['path']
+        }
+      },
+      // ==================== Context ====================
+      {
+        name: 'context_session_create',
+        description: 'Create a new context session',
+        inputSchema: {
+          type: 'object',
+          properties: { userId: { type: 'string', description: 'User ID (optional)' } },
+          required: []
+        }
+      },
+      {
+        name: 'context_session_get',
+        description: 'Get context session data',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            key: { type: 'string', description: 'Specific data key (optional)' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'context_session_update',
+        description: 'Update context session data',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            key: { type: 'string', description: 'Data key' },
+            value: { description: 'Data value' }
+          },
+          required: ['sessionId', 'key', 'value']
+        }
+      },
+      {
+        name: 'context_reference_add',
+        description: 'Add a reference to a context session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            type: { type: 'string', enum: ['block', 'document', 'selection'], description: 'Reference type' },
+            id: { type: 'string', description: 'Reference ID' },
+            content: { type: 'string', description: 'Content (required for selection type)' },
+            metadata: { type: 'object', description: 'Metadata (optional)' }
+          },
+          required: ['sessionId', 'type', 'id']
+        }
+      },
+      {
+        name: 'context_reference_list',
+        description: 'List references in a context session',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            type: { type: 'string', enum: ['block', 'document', 'selection'], description: 'Reference type filter (optional)' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'context_merge',
+        description: 'Merge context session data',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sessionId: { type: 'string', description: 'Session ID' },
+            strategy: { type: 'string', enum: ['recent', 'relevant', 'all'], description: 'Merge strategy', default: 'recent' }
+          },
+          required: ['sessionId']
+        }
+      },
+      {
+        name: 'context_summary',
+        description: 'Export a context session summary',
+        inputSchema: {
+          type: 'object',
+          properties: { sessionId: { type: 'string', description: 'Session ID' } },
+          required: ['sessionId']
+        }
+      },
+      // ==================== Resources ====================
+      {
+        name: 'resources_discover',
+        description: 'Discover available SiYuan resources (documents, blocks, notebooks)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            type: { type: 'string', enum: ['document', 'block', 'notebook'], description: 'Resource type filter' },
+            notebook: { type: 'string', description: 'Notebook ID filter (optional)' },
+            query: { type: 'string', description: 'Search query' },
+            offset: { type: 'number', description: 'Pagination offset', default: 0 },
+            limit: { type: 'number', description: 'Maximum results', default: 50 },
+            sortBy: { type: 'string', enum: ['created', 'updated', 'name'], description: 'Sort field', default: 'updated' },
+            sortOrder: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order', default: 'desc' }
+          },
+          required: []
+        }
+      },
+      {
+        name: 'resources_search',
+        description: 'Search SiYuan resources by query string',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query' },
+            type: { type: 'string', enum: ['document', 'block', 'notebook'], description: 'Resource type filter' },
+            notebook: { type: 'string', description: 'Notebook ID filter (optional)' },
+            offset: { type: 'number', description: 'Pagination offset', default: 0 },
+            limit: { type: 'number', description: 'Maximum results', default: 20 }
+          },
+          required: ['query']
+        }
+      },
+      {
+        name: 'resources_stats',
+        description: 'Get resource statistics',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      // ==================== Prompts ====================
+      {
+        name: 'prompts_list',
+        description: 'List all available prompt templates',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        name: 'prompts_get',
+        description: 'Get a prompt template by name with variable substitution',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Prompt template name' },
+            variables: { type: 'object', description: 'Template variables' }
+          },
+          required: ['name']
+        }
+      },
+      {
+        name: 'prompts_validate',
+        description: 'Validate variables for a prompt template',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Prompt template name' },
+            variables: { type: 'object', description: 'Variables to validate' }
+          },
+          required: ['name', 'variables']
+        }
+      },
+      // ==================== Batch ====================
+      {
+        name: 'batch_create_docs',
+        description: 'Batch create multiple documents',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            requests: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  notebook: { type: 'string', description: 'Notebook ID' },
+                  path: { type: 'string', description: 'Document path' },
+                  title: { type: 'string', description: 'Document title' },
+                  content: { type: 'string', description: 'Document content (optional)' }
+                },
+                required: ['notebook', 'path', 'title']
+              },
+              description: 'List of batch document create requests'
+            }
+          },
+          required: ['requests']
+        }
+      },
+      {
+        name: 'batch_search_queries',
+        description: 'Batch search (runs queries in parallel)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            queries: { type: 'array', items: { type: 'string' }, description: 'List of search queries' },
+            limit: { type: 'number', description: 'Result limit per query', default: 10 }
+          },
+          required: ['queries']
+        }
+      },
     ];
   }
 
@@ -831,6 +1186,160 @@ export class MergedTools {
 
         case 'av_create_database':
           return await this.handleAvCreateDatabase(args.notebookId, args.name, args.columns);
+
+        // ==================== System & Infrastructure ====================
+        case 'system_health':
+          return createStandardResponse(true, 'Health check successful', await this.client.checkHealth());
+
+        case 'system_discover_ports': {
+          const pd = createPortDiscovery(process.env.SIYUAN_API_TOKEN || process.env.SIYUAN_TOKEN || '');
+          const port = await pd.autoDiscover();
+          return createStandardResponse(true, 'Port discovery complete', { discoveredPort: port, success: port !== null });
+        }
+
+        case 'system_cache_stats': {
+          const { cacheManager } = await import('../utils/cache.js');
+          return createStandardResponse(true, 'Cache stats retrieved', cacheManager.getAllStats());
+        }
+
+        case 'system_retry_stats': {
+          const { retryManager } = await import('../utils/retry.js');
+          return createStandardResponse(true, 'Retry stats retrieved', retryManager.getStats());
+        }
+
+        // ==================== Blocks ====================
+        case 'blocks_get':
+          return createStandardResponse(true, 'Block retrieved', await this.client.blocks.getBlock(args.id));
+
+        case 'blocks_create':
+          return createStandardResponse(true, 'Block created',
+            await this.client.blocks.insertBlock(args.content, args.parentID, args.previousID));
+
+        case 'blocks_update':
+          return createStandardResponse(true, 'Block updated',
+            await this.client.blocks.updateBlock(args.id, args.content));
+
+        case 'blocks_delete':
+          return createStandardResponse(true, 'Block deleted',
+            await this.client.blocks.deleteBlock(args.id));
+
+        case 'blocks_move':
+          return createStandardResponse(true, 'Block moved',
+            await this.client.blocks.moveBlock(args.id, args.parentID, args.previousID));
+
+        // ==================== Documents ====================
+        case 'docs_create':
+          return createStandardResponse(true, 'Document created',
+            await this.client.documents.createDoc(args.notebook || '', args.path, args.title, args.content || ''));
+
+        case 'docs_list':
+          return createStandardResponse(true, 'Documents listed',
+            await this.client.documents.listDocs(args.notebook));
+
+        // ==================== Assets ====================
+        case 'assets_upload': {
+          const buf = Buffer.from(args.file as string, 'base64');
+          return createStandardResponse(true, 'Asset uploaded',
+            await this.client.assets.uploadAsset(buf, 'uploaded-file', args.assetsDirPath));
+        }
+
+        case 'assets_list': {
+          const res = args.type === 'images'
+            ? await this.client.assets.getDocImageAssets(args.id)
+            : await this.client.assets.getDocAssets(args.id);
+          return createStandardResponse(true, 'Assets listed', res);
+        }
+
+        case 'assets_unused':
+          return createStandardResponse(true, 'Unused assets found', await this.client.assets.getUnusedAssets());
+
+        case 'assets_missing':
+          return createStandardResponse(true, 'Missing assets found', await this.client.assets.getMissingAssets());
+
+        case 'assets_rename':
+          return createStandardResponse(true, 'Asset renamed',
+            await this.client.assets.renameAsset(args.oldPath, args.newPath));
+
+        case 'assets_ocr':
+          return createStandardResponse(true, 'OCR complete', await this.client.assets.ocr(args.path));
+
+        // ==================== Context ====================
+        case 'context_session_create':
+          return createStandardResponse(true, 'Session created',
+            await contextManager.createSession(args.userId));
+
+        case 'context_session_get':
+          return createStandardResponse(true, 'Session data retrieved',
+            await contextManager.getSessionContext(args.sessionId, args.key));
+
+        case 'context_session_update':
+          await contextManager.updateSessionContext(args.sessionId, args.key, args.value);
+          return createStandardResponse(true, 'Session context updated', null);
+
+        case 'context_reference_add': {
+          const rType = args.type as 'block' | 'document' | 'selection';
+          if (rType === 'block') await contextManager.addBlockReference(args.sessionId, args.id);
+          else if (rType === 'document') await contextManager.addDocumentReference(args.sessionId, args.id);
+          else if (rType === 'selection') await contextManager.addSelectionReference(args.sessionId, args.id, args.content, args.metadata);
+          return createStandardResponse(true, `Reference added to session ${args.sessionId}`, null);
+        }
+
+        case 'context_reference_list':
+          return createStandardResponse(true, 'References retrieved',
+            await contextManager.getReferences(args.sessionId, args.type));
+
+        case 'context_merge':
+          return createStandardResponse(true, 'Context merged',
+            await contextManager.mergeContexts(args.sessionId, args.strategy));
+
+        case 'context_summary':
+          return createStandardResponse(true, 'Summary exported',
+            await contextManager.exportContextSummary(args.sessionId));
+
+        // ==================== Resources ====================
+        case 'resources_discover': {
+          const dr = await resourceDirectory.discoverResources(
+            { type: args.type, notebook: args.notebook, query: args.query },
+            { offset: args.offset || 0, limit: args.limit || 20, sortBy: args.sortBy || 'updated', sortOrder: args.sortOrder || 'desc' }
+          );
+          return createStandardResponse(true, `Discovered ${dr.resources.length} resources`, dr);
+        }
+
+        case 'resources_search': {
+          const sr = await resourceDirectory.searchResources(
+            (args.query || '').trim(),
+            { type: args.type, notebook: args.notebook },
+            { offset: args.offset, limit: args.limit || 10 }
+          );
+          return createStandardResponse(true, `Found ${sr.resources.length} resources`, sr);
+        }
+
+        case 'resources_stats':
+          return createStandardResponse(true, 'Resource stats retrieved',
+            await resourceDirectory.getResourceStats());
+
+        // ==================== Prompts ====================
+        case 'prompts_list':
+          return createStandardResponse(true, 'Prompts listed',
+            promptTemplateManager.getAvailablePrompts());
+
+        case 'prompts_get':
+          return createStandardResponse(true, 'Prompt retrieved',
+            await promptTemplateManager.getPrompt(args.name, args.variables || {}));
+
+        case 'prompts_validate':
+          return createStandardResponse(true, 'Validation complete',
+            promptTemplateManager.validateVariables(args.name, args.variables || {}));
+
+        // ==================== Batch ====================
+        case 'batch_create_docs':
+          return createStandardResponse(true, 'Documents created',
+            await this.client.batch.batchCreateDocs(args.requests || []));
+
+        case 'batch_search_queries':
+          return createStandardResponse(true, 'Search complete',
+            await this.client.batch.batchSearchQueries(args.queries || [], args.limit));
+
 
         default:
           throw new Error(`未知的工具: ${toolName}`);
