@@ -90,6 +90,7 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 ### System
 | Tool | Description |
 |------|-------------|
+| `siyuan_workspace_map` | Generate a workspace map (notebook + database IDs) ready to paste into Project Instructions |
 | `system_health` | Check SiYuan connection status |
 | `system_discover_ports` | Auto-discover the SiYuan port |
 
@@ -178,6 +179,85 @@ If SiYuan runs on a non-default port or remote machine:
 }
 ```
 
+---
+
+## Supercharge the LLM: Workspace Map (recommended)
+
+By default, the LLM discovers your workspace on-demand — calling `list_notebooks`, `av_list_databases`, etc. at the start of each task. **You can skip all of that** by generating a workspace map once and keeping it in memory.
+
+### Step 1 — Generate the map
+
+In your AI client (Claude Desktop, Cursor, etc.), ask:
+
+```
+Call siyuan_workspace_map
+```
+
+The tool returns a Markdown block with:
+- All your notebooks and their first two levels of documents
+- All Attribute View databases with their IDs
+- A quick-reference table: which tool to call for each goal
+
+### Step 2 — Store it in memory
+
+**Option A — Claude Desktop Project Instructions (recommended, persistent)**
+
+Paste the full output into your Claude Desktop project's **Project Instructions**. Claude will have your IDs available in every conversation without any discovery calls.
+
+1. In Claude Desktop → open your project → **Project Instructions**
+2. Paste the output from `siyuan_workspace_map`
+3. Refresh whenever your workspace structure changes
+
+**Option B — Start of chat (per session)**
+
+Paste the MAP at the beginning of your conversation. Useful for one-off sessions or when Project Instructions are not available.
+
+### Why this matters
+
+Without the MAP, Claude needs extra tool calls to find your notebook and database IDs before it can do anything. With the MAP pre-loaded, Claude goes straight to the action:
+
+| Without MAP | With MAP |
+|-------------|---------|
+| `list_notebooks` → find notebook ID | Already known from Project Instructions |
+| `av_list_databases` → find DB ID | Already known from Project Instructions |
+| `av_render_database` → read content | Called directly on first request |
+
+### Example MAP output
+
+```markdown
+## SiYuan Workspace MAP
+
+### IMPORTANT — Tool quick-reference (always use these, never SQL)
+| Goal | Tool to call |
+|------|-------------|
+| Read database rows + column values | `av_render_database(avId)` |
+| Filter database rows | `av_query_database(avId, column:"Status", value:"In Progress")` |
+| List documents in notebook | `docs_list(notebookId)` |
+| Read document content | `doc_get(docId)` |
+| Create document | `docs_create(notebookId, path:"/Name", title:"Name")` |
+| Full workflow guide | read resource `siyuan://static/workflows` |
+
+---
+
+### Notebooks & Documents
+- **PARA** `20251101-abc1234`
+  - Projects `20251102-def5678`
+  - Areas `20251103-ghi9012`
+- **Divers** `20251104-jkl3456`
+  - Archive `20251105-mno7890`
+
+---
+
+### Attribute View Databases
+To read ANY database: call `av_render_database(avId)` — returns all rows + all column values.
+
+- **DB-Projects** `20251215-op0w1p9` (6 cols, 12 rows)
+  → `av_render_database('20251215-op0w1p9')`
+- **DB-Tasks** `20251216-xyz7890` (4 cols, 38 rows)
+  → `av_render_database('20251216-xyz7890')`
+```
+
+> **Tip:** The MAP also points to `siyuan://static/workflows` — a built-in MCP resource with validated step-by-step CRUD workflows. Claude can read it on demand for complex multi-step operations.
 
 ---
 
@@ -369,6 +449,8 @@ doc_move(fromIds: ["doc-1", "doc-2"], toId: "target-id")
 **Document IDs:** use `search_content`, `docs_list`, or right-click a document in SiYuan → **Copy block ID**.
 **Notebook IDs:** use `list_notebooks`.
 
+> **Shortcut:** run `siyuan_workspace_map` to get all notebook and database IDs in one call, formatted as a Markdown block ready to paste into Claude Desktop Project Instructions.
+
 ---
 
 ## Development
@@ -397,6 +479,7 @@ The original project provided the foundational MCP server structure for SiYuan (
 - **Document CRUD** — get, rename, delete (with cascade protection), move
 - **Batch cell update** — update multiple database cells in a single API call
 - **Full column type coverage** — all 16 SiYuan column types parsed; 11 writable + 5 system/computed
+- **Workspace Map** — `siyuan_workspace_map` generates a ready-to-paste ID reference for Claude Desktop Project Instructions
 - **Universal deployment** — all operations use the HTTP API (`/api/file/putFile` + `/api/file/getFile`); no local filesystem access or `SIYUAN_WORKSPACE_PATH` required; works with remote SiYuan instances
 - Auto-discovery of SiYuan port
 - Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`)

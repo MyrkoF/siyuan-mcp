@@ -944,7 +944,7 @@ export class MergedTools {
       // ==================== Resources ====================
       {
         name: 'resources_discover',
-        description: 'Browse available resources (docs, blocks, notebooks)',
+        description: 'Browse SiYuan documents, blocks, and notebooks. NOT for database content — use av_render_database for typed column values.',
         inputSchema: {
           type: 'object',
           properties: {
