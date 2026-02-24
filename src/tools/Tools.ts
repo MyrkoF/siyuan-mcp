@@ -515,7 +515,7 @@ export class MergedTools {
       // ==================== Attribute View (Database) Tools ====================
       {
         name: 'av_list_databases',
-        description: 'List all Attribute View databases. Then call av_render_database(id) to read rows and column values.',
+        description: 'List all Attribute View databases. Then call av_render_database(id) to read entries and field values.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -529,7 +529,7 @@ export class MergedTools {
       },
       {
         name: 'av_render_database',
-        description: 'Read ALL rows and column values of an Attribute View database (status, priority, dates, etc.). Use this — not SQL, not blocks_get — to read typed database content.',
+        description: 'Read ALL entries and field values of an Attribute View database (status, priority, dates, etc.). Use this — not SQL, not blocks_get — to read typed database content.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -542,8 +542,8 @@ export class MergedTools {
         }
       },
       {
-        name: 'av_delete_row',
-        description: 'Delete rows from a database',
+        name: 'av_delete_entry',
+        description: 'Delete entries from a database',
         inputSchema: {
           type: 'object',
           properties: {
@@ -551,18 +551,18 @@ export class MergedTools {
               type: 'string',
               description: 'Database ID (Attribute View block ID)'
             },
-            rowIds: {
+            entryIds: {
               type: 'array',
               items: { type: 'string' },
-              description: 'Row IDs to delete (at least 1). Get IDs from av_render_database.'
+              description: 'Entry IDs to delete (at least 1). Get IDs from av_render_database.'
             }
           },
-          required: ['avId', 'rowIds']
+          required: ['avId', 'entryIds']
         }
       },
       {
-        name: 'av_update_row',
-        description: 'Update cell values in a database row',
+        name: 'av_update_entry',
+        description: 'Update field values in a database entry',
         inputSchema: {
           type: 'object',
           properties: {
@@ -570,37 +570,37 @@ export class MergedTools {
               type: 'string',
               description: 'Database ID (Attribute View block ID)'
             },
-            rowId: {
+            entryId: {
               type: 'string',
-              description: 'Row ID to update (from av_render_database or av_query_database)'
+              description: 'Entry ID to update (from av_render_database or av_query_database)'
             },
             updates: {
               type: 'array',
-              description: 'List of cells to update (one or more)',
+              description: 'List of fields to update (one or more)',
               items: {
                 type: 'object',
                 properties: {
-                  keyId: { type: 'string', description: 'Column ID (keyID, from av_render_database)' },
+                  fieldId: { type: 'string', description: 'Field ID (keyID, from av_render_database)' },
                   type: {
                     type: 'string',
                     enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'],
-                    description: 'Column type'
+                    description: 'Field type'
                   },
                   content: {
                     description: 'New value: string for text/select/url/email/phone, number for number/date (timestamp ms), boolean for checkbox, string[] for mSelect'
                   }
                 },
-                required: ['keyId', 'type', 'content']
+                required: ['fieldId', 'type', 'content']
               },
               minItems: 1
             }
           },
-          required: ['avId', 'rowId', 'updates']
+          required: ['avId', 'entryId', 'updates']
         }
       },
       {
-        name: 'av_create_row',
-        description: 'Add a new row to a database',
+        name: 'av_create_entry',
+        description: 'Add a new entry to a database',
         inputSchema: {
           type: 'object',
           properties: {
@@ -610,25 +610,25 @@ export class MergedTools {
             },
             name: {
               type: 'string',
-              description: 'Name/title of the new row (primary "block" column content). Empty if omitted.'
+              description: 'Name/title of the new entry (primary "block" field content). Empty if omitted.'
             },
             values: {
               type: 'array',
-              description: 'Optional initial values for other columns',
+              description: 'Optional initial values for other fields',
               items: {
                 type: 'object',
                 properties: {
-                  keyId: { type: 'string', description: 'Column ID (keyID, from av_render_database)' },
+                  fieldId: { type: 'string', description: 'Field ID (keyID, from av_render_database)' },
                   type: {
                     type: 'string',
                     enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone'],
-                    description: 'Column type'
+                    description: 'Field type'
                   },
                   content: {
                     description: 'Value by type: string for text/select/url/email/phone, number for number/date (ms timestamp), boolean for checkbox, string[] for mSelect'
                   }
                 },
-                required: ['keyId', 'type', 'content']
+                required: ['fieldId', 'type', 'content']
               }
             }
           },
@@ -637,7 +637,7 @@ export class MergedTools {
       },
       {
         name: 'av_query_database',
-        description: 'Filter Attribute View database rows by column value (case-insensitive partial match). Use after av_list_databases to get avId.',
+        description: 'Filter Attribute View database entries by field value (case-insensitive partial match). Use after av_list_databases to get avId.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -645,21 +645,21 @@ export class MergedTools {
               type: 'string',
               description: 'Database ID (Attribute View block ID)'
             },
-            column: {
+            field: {
               type: 'string',
-              description: 'Column name or ID to filter by (e.g. "Status", "Area")'
+              description: 'Field name or ID to filter by (e.g. "Status", "Area")'
             },
             value: {
               type: 'string',
               description: 'Value to search for (partial match, case-insensitive)'
             }
           },
-          required: ['avId', 'column', 'value']
+          required: ['avId', 'field', 'value']
         }
       },
       {
         name: 'av_create_database',
-        description: 'Create a new Attribute View database (SiYuan DB with typed columns)',
+        description: 'Create a new Attribute View database (SiYuan DB with typed fields)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -671,17 +671,17 @@ export class MergedTools {
               type: 'string',
               description: 'Database name (also used as the document title)'
             },
-            columns: {
+            fields: {
               type: 'array',
-              description: 'Optional additional columns (primary "Name" column is always created automatically)',
+              description: 'Optional additional fields (primary "Name" field is always created automatically)',
               items: {
                 type: 'object',
                 properties: {
-                  name: { type: 'string', description: 'Column name' },
+                  name: { type: 'string', description: 'Field name' },
                   type: {
                     type: 'string',
                     enum: ['text','number','select','mSelect','date','checkbox','url','email','phone','mAsset','created','updated','lineNumber','template','rollup','relation'],
-                    description: 'Column type'
+                    description: 'Field type'
                   }
                 },
                 required: ['name', 'type']
@@ -1177,20 +1177,20 @@ export class MergedTools {
         case 'av_render_database':
           return await this.handleAvRenderDatabase(args.id);
 
-        case 'av_create_row':
-          return await this.handleAvCreateRow(args.avId, args.name, args.values);
+        case 'av_create_entry':
+          return await this.handleAvCreateEntry(args.avId, args.name, args.values);
 
-        case 'av_delete_row':
-          return await this.handleAvDeleteRow(args.avId, args.rowIds);
+        case 'av_delete_entry':
+          return await this.handleAvDeleteEntry(args.avId, args.entryIds);
 
-        case 'av_update_row':
-          return await this.handleAvUpdateRow(args.avId, args.rowId, args.updates);
+        case 'av_update_entry':
+          return await this.handleAvUpdateEntry(args.avId, args.entryId, args.updates);
 
         case 'av_query_database':
-          return await this.handleAvQueryDatabase(args.avId, args.column, args.value);
+          return await this.handleAvQueryDatabase(args.avId, args.field, args.value);
 
         case 'av_create_database':
-          return await this.handleAvCreateDatabase(args.notebookId, args.name, args.columns);
+          return await this.handleAvCreateDatabase(args.notebookId, args.name, args.fields);
 
         // ==================== System & Infrastructure ====================
         case 'siyuan_workspace_map': {
@@ -1204,8 +1204,8 @@ export class MergedTools {
             '### IMPORTANT — Tool quick-reference (always use these, never SQL)',
             '| Goal | Tool to call |',
             '|------|-------------|',
-            '| Read database rows + column values | `av_render_database(avId)` |',
-            '| Filter database rows | `av_query_database(avId, column:"Status", value:"In Progress")` |',
+            '| Read database entries + field values | `av_render_database(avId)` |',
+            '| Filter database entries | `av_query_database(avId, field:"Status", value:"In Progress")` |',
             '| List documents in notebook | `docs_list(notebookId)` |',
             '| Read document content | `doc_get(docId)` |',
             '| Create document | `docs_create(notebookId, path:"/Name", title:"Name")` |',
@@ -1237,9 +1237,9 @@ export class MergedTools {
 
           // AV Databases — with inline tool hints
           lines.push('\n---', '\n### Attribute View Databases');
-          lines.push('To read ANY database: call `av_render_database(avId)` — returns all rows + all column values.\n');
+          lines.push('To read ANY database: call `av_render_database(avId)` — returns all entries + all field values.\n');
           for (const db of databases) {
-            lines.push(`- **${db.name}** \`${db.id}\` (${db.columnCount} cols, ${db.rowCount} rows)`);
+            lines.push(`- **${db.name}** \`${db.id}\` (${db.fieldCount} fields, ${db.entryCount} entries)`);
             lines.push(`  → \`av_render_database('${db.id}')\``);
           }
 
@@ -1739,7 +1739,7 @@ export class MergedTools {
       const db = await this.avService.renderDatabase(id);
       return createStandardResponse(
         true,
-        `Database "${db.name}": ${db.rows.length} row(s), ${db.columns.length} column(s)`,
+        `Database "${db.name}": ${db.entries.length} entries, ${db.fields.length} field(s)`,
         db
       );
     } catch (error: any) {
@@ -1747,80 +1747,80 @@ export class MergedTools {
     }
   }
 
-  private async handleAvCreateRow(avId: string, name?: string, values?: any[]): Promise<StandardResponse> {
+  private async handleAvCreateEntry(avId: string, name?: string, values?: any[]): Promise<StandardResponse> {
     try {
       if (!avId) {
         return createStandardResponse(false, 'Missing parameter', null, 'avId is required');
       }
-      const newRow = await this.avService.createRow(avId, name ?? '', values ?? []);
-      if (!newRow) {
+      const newEntry = await this.avService.createRow(avId, name ?? '', values ?? []);
+      if (!newEntry) {
         return createStandardResponse(
           false,
-          'Row created but not found in post-render diff',
+          'Entry created but not found in post-render diff',
           null,
-          'Row may have been created but its ID cannot be determined'
+          'Entry may have been created but its ID cannot be determined'
         );
       }
       return createStandardResponse(
         true,
-        `Row created successfully (ID: ${newRow.id})`,
-        newRow
+        `Entry created successfully (ID: ${newEntry.id})`,
+        newEntry
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Error creating row', null, error?.message);
+      return createStandardResponse(false, 'Error creating entry', null, error?.message);
     }
   }
 
-  private async handleAvDeleteRow(avId: string, rowIds: string[]): Promise<StandardResponse> {
+  private async handleAvDeleteEntry(avId: string, entryIds: string[]): Promise<StandardResponse> {
     try {
-      if (!avId || !rowIds || rowIds.length === 0) {
+      if (!avId || !entryIds || entryIds.length === 0) {
         return createStandardResponse(
           false, 'Missing parameters', null,
-          'avId and rowIds (non-empty array) are required'
+          'avId and entryIds (non-empty array) are required'
         );
       }
-      await this.avService.deleteRows(avId, rowIds);
+      await this.avService.deleteRows(avId, entryIds);
       return createStandardResponse(
         true,
-        `${rowIds.length} row(s) deleted successfully`,
-        { avId, deletedRowIds: rowIds, count: rowIds.length }
+        `${entryIds.length} entry/entries deleted successfully`,
+        { avId, deletedEntryIds: entryIds, count: entryIds.length }
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Error deleting rows', null, error?.message);
+      return createStandardResponse(false, 'Error deleting entries', null, error?.message);
     }
   }
 
-  private async handleAvUpdateRow(avId: string, rowId: string, updates: any[]): Promise<StandardResponse> {
+  private async handleAvUpdateEntry(avId: string, entryId: string, updates: any[]): Promise<StandardResponse> {
     try {
-      if (!avId || !rowId) {
-        return createStandardResponse(false, 'Missing parameters', null, 'avId and rowId are required');
+      if (!avId || !entryId) {
+        return createStandardResponse(false, 'Missing parameters', null, 'avId and entryId are required');
       }
       if (!updates || updates.length === 0) {
-        return createStandardResponse(false, 'Missing parameters', null, 'updates must contain at least one cell');
+        return createStandardResponse(false, 'Missing parameters', null, 'updates must contain at least one field');
       }
-      await this.avService.batchUpdateRow(avId, rowId, updates);
+      await this.avService.batchUpdateRow(avId, entryId, updates);
       return createStandardResponse(
         true,
-        `${updates.length} cell(s) updated`,
-        { avId, rowId, updatedKeys: updates.map((u: any) => u.keyId) }
+        `${updates.length} field(s) updated`,
+        { avId, entryId, updatedFields: updates.map((u: any) => u.fieldId) }
       );
     } catch (error: any) {
-      return createStandardResponse(false, 'Error updating row', null, error?.message);
+      return createStandardResponse(false, 'Error updating entry', null, error?.message);
     }
   }
 
-  private async handleAvQueryDatabase(avId: string, column: string, value: string): Promise<StandardResponse> {
+  private async handleAvQueryDatabase(avId: string, field: string, value: string): Promise<StandardResponse> {
     try {
-      if (!avId || !column || value === undefined) {
+      if (!avId || !field || value === undefined) {
         return createStandardResponse(
           false, 'Missing parameters', null,
-          'avId, column and value are required'
+          'avId, field and value are required'
         );
       }
-      const db = await this.avService.queryDatabase(avId, column, String(value));
+      const db = await this.avService.queryDatabase(avId, field, String(value));
       return createStandardResponse(
         true,
-        `${db.rows.length} row(s) found for "${column}" = "${value}"`,
+        `${db.entries.length} entry/entries found for "${field}" = "${value}"`,
         db
       );
     } catch (error: any) {
@@ -1831,7 +1831,7 @@ export class MergedTools {
   private async handleAvCreateDatabase(
     notebookId: string,
     name: string,
-    columns?: Array<{ name: string; type: string }>
+    fields?: Array<{ name: string; type: string }>
   ): Promise<StandardResponse> {
     try {
       if (!notebookId || !name) {
@@ -1840,7 +1840,7 @@ export class MergedTools {
           'notebookId and name are required'
         );
       }
-      const cols: AVColumnSpec[] = (columns ?? []).map(c => ({
+      const cols: AVColumnSpec[] = (fields ?? []).map(c => ({
         name: c.name,
         type: c.type
       }));

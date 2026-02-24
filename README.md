@@ -11,17 +11,17 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 
 | Tool | Description |
 |------|-------------|
-| `av_list_databases` | List all Attribute View databases in the workspace (name, column count, row count) |
-| `av_render_database` | Read a full database: all columns (with types) and all rows (with parsed cell values) |
-| `av_create_row` | Create a new detached row with an optional name and initial cell values |
-| `av_delete_row` | Delete one or more rows from a database by row ID |
-| `av_update_row` | Update one or more cells in a row in a single API call (batch) |
-| `av_query_database` | Filter rows by column name/value (partial match, case-insensitive) |
+| `av_list_databases` | List all Attribute View databases in the workspace (name, field count, entry count) |
+| `av_render_database` | Read a full database: all fields (with types) and all entries (with parsed cell values) |
+| `av_create_entry` | Create a new detached entry with an optional name and initial cell values |
+| `av_delete_entry` | Delete one or more entries from a database by entry ID |
+| `av_update_entry` | Update one or more cells in an entry in a single API call (batch) |
+| `av_query_database` | Filter entries by field name/value (partial match, case-insensitive) |
 | `av_create_database` | Create a new Attribute View database with a document in a notebook |
 
-**Supported column types (read/write):** `block` (primary key), `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `mAsset`
+**Supported field types (read/write):** `block` (primary key), `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `mAsset`
 
-**System/computed columns (read-only — value set by SiYuan):** `relation`, `rollup`, `created`, `updated`, `lineNumber`, `template`
+**System/computed fields (read-only — value set by SiYuan):** `relation`, `rollup`, `created`, `updated`, `lineNumber`, `template`
 
 ### Documents
 | Tool | Description |
@@ -230,8 +230,8 @@ Without the MAP, Claude needs extra tool calls to find your notebook and databas
 ### IMPORTANT — Tool quick-reference (always use these, never SQL)
 | Goal | Tool to call |
 |------|-------------|
-| Read database rows + column values | `av_render_database(avId)` |
-| Filter database rows | `av_query_database(avId, column:"Status", value:"In Progress")` |
+| Read database entries + field values | `av_render_database(avId)` |
+| Filter database entries | `av_query_database(avId, field:"Status", value:"In Progress")` |
 | List documents in notebook | `docs_list(notebookId)` |
 | Read document content | `doc_get(docId)` |
 | Create document | `docs_create(notebookId, path:"/Name", title:"Name")` |
@@ -249,11 +249,11 @@ Without the MAP, Claude needs extra tool calls to find your notebook and databas
 ---
 
 ### Attribute View Databases
-To read ANY database: call `av_render_database(avId)` — returns all rows + all column values.
+To read ANY database: call `av_render_database(avId)` — returns all entries + all field values.
 
-- **DB-Projects** `20251215-op0w1p9` (6 cols, 12 rows)
+- **DB-Projects** `20251215-op0w1p9` (6 fields, 12 entries)
   → `av_render_database('20251215-op0w1p9')`
-- **DB-Tasks** `20251216-xyz7890` (4 cols, 38 rows)
+- **DB-Tasks** `20251216-xyz7890` (4 fields, 38 entries)
   → `av_render_database('20251216-xyz7890')`
 ```
 
@@ -298,18 +298,18 @@ SiYuan uses two separate storage systems:
 | Storage | Contains | Access |
 |---------|----------|--------|
 | SQLite (`blocks.db`) | Documents, blocks, text content | HTTP API |
-| JSON files (`/data/storage/av/*.json`) | Database columns, rows, cell values | HTTP API (`/api/file/getFile` + `/api/file/putFile`) |
+| JSON files (`/data/storage/av/*.json`) | Database fields, entries, cell values | HTTP API (`/api/file/getFile` + `/api/file/putFile`) |
 
-### Why `av_create_database` and `av_create_row` use file API calls
+### Why `av_create_database` and `av_create_entry` use file API calls
 
 SiYuan's high-level HTTP API is incomplete for Attribute View **write** operations:
 
 - **No API to create a database** — no endpoint creates a new `.json` AV file
-- **No API to add rows with values at creation time** — `appendAttributeViewDetachedBlocksWithValues` returns `code: 0` but silently fails to persist rows (observed in SiYuan 3.5.7)
+- **No API to add entries with values at creation time** — `appendAttributeViewDetachedBlocksWithValues` returns `code: 0` but silently fails to persist entries (observed in SiYuan 3.5.7)
 
-As a result, `av_create_database` and `av_create_row` construct the AV JSON directly and write it via SiYuan's `/api/file/putFile` endpoint. Reading uses `/api/file/getFile`. This is pure HTTP — no local filesystem access required.
+As a result, `av_create_database` and `av_create_entry` construct the AV JSON directly and write it via SiYuan's `/api/file/putFile` endpoint. Reading uses `/api/file/getFile`. This is pure HTTP — no local filesystem access required.
 
-**All other operations** (`av_render_database`, `av_query_database`, `av_list_databases`, `av_update_row`, `av_delete_row`) use the standard `/api/av/` endpoints normally.
+**All other operations** (`av_render_database`, `av_query_database`, `av_list_databases`, `av_update_entry`, `av_delete_entry`) use the standard `/api/av/` endpoints normally.
 
 ---
 
@@ -326,56 +326,56 @@ av_list_databases()
 #### Read a database
 ```
 av_render_database(id: "20251215105701-op0w1p9")
-→ { name, columns: [{id, name, type}], rows: [{id, cells: {...}}] }
+→ { name, fields: [{id, name, type}], entries: [{id, cells: {...}}] }
 ```
 
-#### Create a row with initial values
+#### Create an entry with initial values
 ```
-av_create_row(
+av_create_entry(
   avId: "20251215105701-op0w1p9",
   name: "New project",
   values: [
-    { keyId: "col-status-id", type: "select",   content: "Active" },
-    { keyId: "col-note-id",   type: "text",     content: "Created via MCP" },
-    { keyId: "col-done-id",   type: "checkbox", content: false }
+    { fieldId: "col-status-id", type: "select",   content: "Active" },
+    { fieldId: "col-note-id",   type: "text",     content: "Created via MCP" },
+    { fieldId: "col-done-id",   type: "checkbox", content: false }
   ]
 )
-→ the new row with its ID and all cell values
+→ the new entry with its ID and all cell values
 ```
 
-> **Note:** `av_create_row` uses SiYuan's `/api/file/getFile` + `/api/file/putFile` HTTP endpoints to read and write the AV JSON. No local filesystem access is required — works with remote SiYuan instances.
+> **Note:** `av_create_entry` uses SiYuan's `/api/file/getFile` + `/api/file/putFile` HTTP endpoints to read and write the AV JSON. No local filesystem access is required — works with remote SiYuan instances.
 
 #### Update multiple cells in one call
 ```
-av_update_row(
+av_update_entry(
   avId:  "20251215105701-op0w1p9",
-  rowId: "20251216093012-abc1234",
+  entryId: "20251216093012-abc1234",
   updates: [
-    { keyId: "col-status-id",   type: "select", content: "Done" },
-    { keyId: "col-progress-id", type: "number", content: 100 },
-    { keyId: "col-note-id",     type: "text",   content: "Completed" }
+    { fieldId: "col-status-id",   type: "select", content: "Done" },
+    { fieldId: "col-progress-id", type: "number", content: 100 },
+    { fieldId: "col-note-id",     type: "text",   content: "Completed" }
   ]
 )
-→ { avId, rowId, updatedKeys: [...] }
+→ { avId, entryId, updatedKeys: [...] }
 ```
 
-> **Note on select columns:** SiYuan stores single-select values internally as `mSelect` (array). The `type: "select"` in `updates` is handled automatically — no need to use the raw `mSelect` format.
+> **Note on select fields:** SiYuan stores single-select values internally as `mSelect` (array). The `type: "select"` in `updates` is handled automatically — no need to use the raw `mSelect` format.
 
-#### Filter rows
+#### Filter entries
 ```
 av_query_database(
   avId:   "20251215105701-op0w1p9",
-  column: "Status",
+  field: "Status",
   value:  "active"
 )
-→ rows where Status contains "active" (case-insensitive)
+→ entries where Status contains "active" (case-insensitive)
 ```
 
-#### Delete rows
+#### Delete entries
 ```
-av_delete_row(
+av_delete_entry(
   avId:   "20251215105701-op0w1p9",
-  rowIds: ["row-id-1", "row-id-2"]
+  entryIds: ["row-id-1", "row-id-2"]
 )
 ```
 
@@ -386,7 +386,7 @@ Creates a new Attribute View database and its host document in a notebook.
 av_create_database(
   notebookId: "20251217123754-wo6vimv",
   name: "DB-Projects",
-  columns: [
+  fields: [
     { name: "Status",   type: "select" },
     { name: "Priority", type: "select" },
     { name: "Due",      type: "date" },
@@ -398,7 +398,7 @@ av_create_database(
 ```
 
 The `avId` returned can immediately be used with all other `av_*` tools.
-Columns of system types (`created`, `updated`, `lineNumber`, `rollup`, `relation`) can be declared but their values are managed by SiYuan — you cannot write to them manually.
+Fields of system types (`created`, `updated`, `lineNumber`, `rollup`, `relation`) can be declared but their values are managed by SiYuan — you cannot write to them manually.
 
 > **Note:** `av_create_database` uses SiYuan's `/api/file/putFile` HTTP endpoint to write the database JSON. No local filesystem access or `SIYUAN_WORKSPACE_PATH` configuration required.
 
@@ -445,7 +445,7 @@ doc_move(fromIds: ["doc-1", "doc-2"], toId: "target-id")
 ## How to find IDs
 
 **Database IDs:** use `av_list_databases` — returns all database IDs and names.
-**Column IDs (keyIDs):** returned by `av_render_database` in the `columns` array.
+**Field IDs (keyIDs):** returned by `av_render_database` in the `columns` array.
 **Document IDs:** use `search_content`, `docs_list`, or right-click a document in SiYuan → **Copy block ID**.
 **Notebook IDs:** use `list_notebooks`.
 
@@ -475,10 +475,10 @@ This project is a fork of [GALIAIS/siyuan-mcp-server](https://github.com/GALIAIS
 The original project provided the foundational MCP server structure for SiYuan (notebooks, documents, blocks, search, assets, tags). This fork adds:
 
 - **Full Attribute View (database) support** — the main feature missing from all existing SiYuan MCP servers
-- **Database creation** — `av_create_database` creates databases programmatically with typed columns
+- **Database creation** — `av_create_database` creates databases programmatically with typed fields
 - **Document CRUD** — get, rename, delete (with cascade protection), move
 - **Batch cell update** — update multiple database cells in a single API call
-- **Full column type coverage** — all 16 SiYuan column types parsed; 11 writable + 5 system/computed
+- **Full field type coverage** — all 16 SiYuan field types parsed; 11 writable + 5 system/computed
 - **Workspace Map** — `siyuan_workspace_map` generates a ready-to-paste ID reference for Claude Desktop Project Instructions
 - **Universal deployment** — all operations use the HTTP API (`/api/file/putFile` + `/api/file/getFile`); no local filesystem access or `SIYUAN_WORKSPACE_PATH` required; works with remote SiYuan instances
 - Auto-discovery of SiYuan port

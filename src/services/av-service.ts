@@ -31,16 +31,16 @@ export interface AVDatabase {
   name: string;
   viewId?: string;
   viewType?: string;
-  columns: AVColumn[];
-  rows: AVRow[];
+  fields: AVColumn[];
+  entries: AVRow[];
   total: number;
 }
 
 export interface AVDatabaseSummary {
   id: string;
   name: string;
-  columnCount: number;
-  rowCount: number;
+  fieldCount: number;
+  entryCount: number;
 }
 
 /**
@@ -48,7 +48,7 @@ export interface AVDatabaseSummary {
  * content : string | number | boolean | string[] selon le type.
  */
 export interface AVCreateRowValue {
-  keyId: string;
+  fieldId: string;
   type: string;
   content: any;
 }
@@ -88,7 +88,7 @@ export class AttributeViewService {
     });
 
     if (!dirResponse || dirResponse.code !== 0) {
-      throw new Error(`Impossible de lister /data/storage/av: ${dirResponse?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`Cannot list /data/storage/av: ${dirResponse?.msg ?? 'unknown error'}`);
     }
 
     const files: any[] = dirResponse.data ?? [];
@@ -111,8 +111,8 @@ export class AttributeViewService {
         summaries.push({
           id,
           name,
-          columnCount: db.columns.length,
-          rowCount: db.rows.length
+          fieldCount: db.fields.length,
+          entryCount: db.entries.length
         });
       } catch {
         // Database en trash ou corrompue → ignorer silencieusement
@@ -128,7 +128,7 @@ export class AttributeViewService {
    */
   async renderDatabase(id: string): Promise<AVDatabase> {
     if (!id || id.trim() === '') {
-      throw new Error('Database ID est requis');
+      throw new Error('Database ID is required');
     }
 
     const response = await this.client.request('/api/av/renderAttributeView', {
@@ -137,7 +137,7 @@ export class AttributeViewService {
 
     if (!response || response.code !== 0) {
       throw new Error(
-        `renderAttributeView échoué pour "${id}": ${response?.msg ?? 'erreur inconnue'}`
+        `renderAttributeView failed for "${id}": ${response?.msg ?? 'unknown error'}`
       );
     }
 
@@ -151,22 +151,22 @@ export class AttributeViewService {
    * @param avId     — Block ID de la database
    * @param rowIds   — IDs des lignes à supprimer (au moins 1)
    */
-  async deleteRows(avId: string, rowIds: string[]): Promise<void> {
+  async deleteRows(avId: string, entryIds: string[]): Promise<void> {
     if (!avId || avId.trim() === '') {
-      throw new Error('avId est requis');
+      throw new Error('avId is required');
     }
-    if (!rowIds || rowIds.length === 0) {
-      throw new Error('Au moins un rowId est requis');
+    if (!entryIds || entryIds.length === 0) {
+      throw new Error('At least one entryId is required');
     }
 
     const response = await this.client.request('/api/av/removeAttributeViewBlocks', {
       avID: avId.trim(),
-      srcIDs: rowIds
+      srcIDs: entryIds
     });
 
     if (!response || response.code !== 0) {
       throw new Error(
-        `Suppression échouée: ${response?.msg ?? 'erreur inconnue'}`
+        `Deletion failed: ${response?.msg ?? 'unknown error'}`
       );
     }
   }
@@ -181,19 +181,19 @@ export class AttributeViewService {
    */
   async batchUpdateRow(
     avId: string,
-    rowId: string,
+    entryId: string,
     updates: AVCreateRowValue[]
   ): Promise<void> {
-    if (!avId || !rowId) {
-      throw new Error('avId et rowId sont requis');
+    if (!avId || !entryId) {
+      throw new Error('avId and entryId are required');
     }
     if (!updates || updates.length === 0) {
-      throw new Error('Au moins une mise à jour est requise');
+      throw new Error('At least one update is required');
     }
 
     const values = updates.map(u => ({
-      keyID: u.keyId,
-      rowID: rowId,
+      keyID: u.fieldId,
+      rowID: entryId,
       value: this.buildUpdateValue(u)
     }));
 
@@ -203,7 +203,7 @@ export class AttributeViewService {
     });
 
     if (!response || response.code !== 0) {
-      throw new Error(`Batch update échoué: ${response?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`Batch update failed: ${response?.msg ?? 'unknown error'}`);
     }
   }
 
@@ -213,26 +213,26 @@ export class AttributeViewService {
    */
   async updateRow(
     avId: string,
-    rowId: string,
-    keyId: string,
+    entryId: string,
+    fieldId: string,
     value: any
   ): Promise<any> {
-    if (!avId || !rowId || !keyId) {
-      throw new Error('avId, rowId et keyId sont tous requis');
+    if (!avId || !entryId || !fieldId) {
+      throw new Error('avId, entryId and fieldId are all required');
     }
 
     const response = await this.client.request('/api/av/setAttributeViewBlockAttr', {
       avID: avId,
-      keyID: keyId,
-      rowID: rowId,
+      keyID: fieldId,
+      rowID: entryId,
       value
     });
 
     if (!response || response.code !== 0) {
-      throw new Error(`Mise à jour échouée: ${response?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`Update failed: ${response?.msg ?? 'unknown error'}`);
     }
 
-    return response.data ?? { avId, rowId, keyId };
+    return response.data ?? { avId, entryId, fieldId };
   }
 
   /**
@@ -257,17 +257,17 @@ export class AttributeViewService {
       throw new Error('avId est requis');
     }
 
-    // Lire le JSON de la database via l'API HTTP
+    // Read the AV JSON file via HTTP API
     const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
     const dbJson = await this.client.fileGet(avHttpPath);
     if (!dbJson || typeof dbJson !== 'object') {
-      throw new Error(`Fichier AV introuvable ou invalide: ${avHttpPath}`);
+      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
     }
 
     const keyValues: any[] = dbJson.keyValues ?? [];
     const pkEntry = keyValues.find((kv: any) => kv.key?.type === 'block');
     if (!pkEntry) {
-      throw new Error('Colonne primaire de type "block" introuvable dans cette database');
+      throw new Error('Primary field of type "block" not found in this database');
     }
 
     const rowId = this.generateSiyuanId();
@@ -286,11 +286,11 @@ export class AttributeViewService {
       block: { id: rowId, content: name, created: now, updated: now }
     });
 
-    // Valeurs des autres colonnes
+    // Values for other fields
     const sysTypes = new Set(['created', 'updated', 'lineNumber', 'template', 'rollup', 'relation']);
 
-    for (const v of values.filter(vv => vv.keyId !== pkEntry.key.id)) {
-      const colEntry = keyValues.find((kv: any) => kv.key?.id === v.keyId);
+    for (const v of values.filter(vv => vv.fieldId !== pkEntry.key.id)) {
+      const colEntry = keyValues.find((kv: any) => kv.key?.id === v.fieldId);
       if (!colEntry) continue;
 
       const colType = colEntry.key.type as string;
@@ -300,7 +300,7 @@ export class AttributeViewService {
       const typeData = this.buildJsonValue(v);
       colEntry.values.push({
         id:        this.generateSiyuanId(),
-        keyID:     v.keyId,
+        keyID:     v.fieldId,
         blockID:   rowId,
         type:      colType,
         createdAt: now,
@@ -314,7 +314,7 @@ export class AttributeViewService {
 
     // Re-render pour retourner la ligne avec ses valeurs parsées
     const rendered = await this.renderDatabase(avId);
-    return rendered.rows.find(r => r.id === rowId) ?? null;
+    return rendered.entries.find((r: AVRow) => r.id === rowId) ?? null;
   }
 
   /**
@@ -323,29 +323,28 @@ export class AttributeViewService {
    */
   async queryDatabase(
     avId: string,
-    column: string,
+    field: string,
     value: string
   ): Promise<AVDatabase> {
     const db = await this.renderDatabase(avId);
 
-    const targetCol = findColumn(db.columns, column);
+    const targetCol = findColumn(db.fields, field);
     if (!targetCol) {
       throw new Error(
-        `Colonne "${column}" introuvable. Disponibles: ${db.columns.map(c => c.name).join(', ')}`
+        `Field "${field}" not found. Available: ${db.fields.map(c => c.name).join(', ')}`
       );
     }
 
     const lowerValue = value.toLowerCase();
 
-    const filteredRows = db.rows.filter(row => {
-      const cellVal = row.cells[targetCol.id];
+    const filteredEntries = db.entries.filter(entry => {
+      const cellVal = entry.cells[targetCol.id];
       if (cellVal === null || cellVal === undefined) return false;
 
       if (Array.isArray(cellVal)) {
         return cellVal.some(v => String(v).toLowerCase().includes(lowerValue));
       }
       if (typeof cellVal === 'object') {
-        // Relations → chercher dans contents
         const contents: any[] = cellVal.contents ?? [];
         if (contents.length > 0) {
           return contents.some((c: any) =>
@@ -357,7 +356,7 @@ export class AttributeViewService {
       return String(cellVal).toLowerCase().includes(lowerValue);
     });
 
-    return { ...db, rows: filteredRows, total: filteredRows.length };
+    return { ...db, entries: filteredEntries, total: filteredEntries.length };
   }
 
   /**
@@ -378,8 +377,8 @@ export class AttributeViewService {
     name: string,
     columns: AVColumnSpec[] = []
   ): Promise<AVCreateDatabaseResult> {
-    if (!notebookId?.trim()) throw new Error('notebookId est requis');
-    if (!name?.trim())       throw new Error('name est requis');
+    if (!notebookId?.trim()) throw new Error('notebookId is required');
+    if (!name?.trim())       throw new Error('name is required');
 
     const dbName    = name.trim();
     const avId      = this.generateSiyuanId();
@@ -417,7 +416,7 @@ export class AttributeViewService {
       if (!colName) continue;
 
       if (!WRITABLE_TYPES.has(colType) && !SYSTEM_TYPES.has(colType)) {
-        throw new Error(`Type de colonne inconnu : "${colType}"`);
+        throw new Error(`Unknown field type: "${colType}"`);
       }
 
       const colId = this.generateSiyuanId();
@@ -471,7 +470,7 @@ export class AttributeViewService {
     if (!docResp || docResp.code !== 0) {
       // Nettoyer le fichier créé si la création doc échoue
       try { await this.client.request('/api/file/removeFile', { path: avHttpPath }); } catch {}
-      throw new Error(`Création du document échouée: ${docResp?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`Document creation failed: ${docResp?.msg ?? 'unknown error'}`);
     }
 
     const docId: string = docResp.data;
@@ -484,7 +483,7 @@ export class AttributeViewService {
     });
 
     if (!blockResp || blockResp.code !== 0) {
-      throw new Error(`Insertion du bloc AV échouée: ${blockResp?.msg ?? 'erreur inconnue'}`);
+      throw new Error(`AV block insertion failed: ${blockResp?.msg ?? 'unknown error'}`);
     }
 
     return { avId, docId, name: dbName, notebookId: notebookId.trim() };
@@ -554,7 +553,7 @@ export class AttributeViewService {
       case 'rollup':
       case 'relation':
         throw new Error(
-          `Le type "${v.type}" est géré par le système ou calculé — impossible d'écrire une valeur manuellement.`
+          `Field type "${v.type}" is system-managed or computed — cannot write a value manually.`
         );
       default:
         return { [v.type]: { content: v.content } };
@@ -607,7 +606,7 @@ export class AttributeViewService {
    */
   private buildBlockValue(v: AVCreateRowValue): any {
     const base: any = {
-      keyID: v.keyId,
+      keyID: v.fieldId,
       type: v.type,
       isDetached: true
     };
@@ -652,7 +651,7 @@ export class AttributeViewService {
       case 'rollup':
       case 'relation':
         throw new Error(
-          `Le type "${v.type}" est géré par le système ou calculé — impossible d'écrire une valeur manuellement.`
+          `Field type "${v.type}" is system-managed or computed — cannot write a value manually.`
         );
       default:
         base[v.type] = { content: v.content };
@@ -669,7 +668,7 @@ export class AttributeViewService {
    */
   private parseRawResponse(id: string, data: any): AVDatabase {
     if (!data) {
-      return { id, name: '', columns: [], rows: [], total: 0 };
+      return { id, name: '', fields: [], entries: [], total: 0 };
     }
 
     const view = data.view ?? data;
@@ -687,8 +686,8 @@ export class AttributeViewService {
       name: data.name ?? view.name ?? id,
       viewId: view.id ?? data.viewID,
       viewType: view.type ?? data.viewType ?? 'table',
-      columns,
-      rows,
+      fields: columns,
+      entries: rows,
       total: rows.length
     };
   }
