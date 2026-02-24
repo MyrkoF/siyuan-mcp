@@ -16,8 +16,15 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 | `av_create_entry` | Create a new detached entry with an optional name and initial cell values |
 | `av_delete_entry` | Delete one or more entries from a database by entry ID |
 | `av_update_entry` | Update one or more cells in an entry in a single API call (batch) |
+| `av_get_entry` | Fetch a single entry by ID (returns all its field values) |
+| `av_bulk_create_entries` | Create multiple entries in one API round-trip |
+| `av_bulk_update_entries` | Update multiple entries in one batch API call |
 | `av_query_database` | Filter entries by field name/value (partial match, case-insensitive) |
 | `av_create_database` | Create a new Attribute View database with a document in a notebook |
+| `av_list_fields` | List all fields (name, type, options) of a database |
+| `av_create_field` | Add a new field to an existing database (name, type, options) |
+| `av_update_field` | Rename a field or update its options (e.g. add/remove select choices) |
+| `av_delete_field` | Delete a field from a database (cannot delete the primary key field) |
 
 **Supported field types (read/write):** `block` (primary key), `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `mAsset`
 
@@ -28,7 +35,7 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 |------|-------------|
 | `doc_get` | Read a document's Markdown content and path by ID |
 | `doc_rename` | Rename a document by ID |
-| `doc_delete` | Send a document to the SiYuan trash. Refuses if children exist (use `cascade:true` to delete recursively) |
+| `doc_delete` | Send a document to the SiYuan trash. Refuses if children exist (use `cascade:true` to delete recursively). Use `dryRun:true` to preview what would be deleted without touching anything. |
 | `doc_move` | Move one or more documents to a new parent document or notebook |
 
 ### Notebooks & Documents (legacy)
@@ -232,6 +239,8 @@ Without the MAP, Claude needs extra tool calls to find your notebook and databas
 |------|-------------|
 | Read database entries + field values | `av_render_database(avId)` |
 | Filter database entries | `av_query_database(avId, field:"Status", value:"In Progress")` |
+| List fields of a database | `av_list_fields(avId)` |
+| Create multiple entries at once | `av_bulk_create_entries(avId, entries:[...])` |
 | List documents in notebook | `docs_list(notebookId)` |
 | Read document content | `doc_get(docId)` |
 | Create document | `docs_create(notebookId, path:"/Name", title:"Name")` |
@@ -402,6 +411,70 @@ Fields of system types (`created`, `updated`, `lineNumber`, `rollup`, `relation`
 
 > **Note:** `av_create_database` uses SiYuan's `/api/file/putFile` HTTP endpoint to write the database JSON. No local filesystem access or `SIYUAN_WORKSPACE_PATH` configuration required.
 
+#### List fields
+```
+av_list_fields(avId: "20251215105701-op0w1p9")
+→ [{ id, name: "Status", type: "select", options: [{ name: "In Progress" }, { name: "Done" }] }, ...]
+```
+
+#### Add a field
+```
+av_create_field(
+  avId: "20251215105701-op0w1p9",
+  name: "Priority",
+  type: "select",
+  options: [{ name: "High" }, { name: "Medium" }, { name: "Low" }]
+)
+→ { id, name: "Priority", type: "select", options: [...] }
+```
+System types (`relation`, `rollup`, `created`, `updated`, `lineNumber`, `template`) are rejected.
+
+#### Rename a field or update its options
+```
+# Rename
+av_update_field(avId: "...", fieldId: "col-id", changes: { name: "State" })
+
+# Update select options (replaces existing options)
+av_update_field(avId: "...", fieldId: "col-id", changes: { options: [{ name: "Todo" }, { name: "Done" }] })
+```
+
+#### Delete a field
+```
+av_delete_field(avId: "20251215105701-op0w1p9", fieldId: "col-id")
+```
+The primary key field (`block` type) cannot be deleted.
+
+#### Fetch a single entry
+```
+av_get_entry(avId: "20251215105701-op0w1p9", entryId: "20251216093012-abc1234")
+→ { id, cells: { Name: "My Project", Status: ["In Progress"], Priority: ["High"] } }
+```
+
+#### Create multiple entries at once
+```
+av_bulk_create_entries(
+  avId: "20251215105701-op0w1p9",
+  entries: [
+    { name: "Project Alpha", values: [{ fieldId: "col-status", type: "select", content: "In Progress" }] },
+    { name: "Project Beta" },
+    { name: "Project Gamma", values: [{ fieldId: "col-status", type: "select", content: "Done" }] }
+  ]
+)
+→ { createdCount: 3, entries: [...] }
+```
+
+#### Update multiple entries at once
+```
+av_bulk_update_entries(
+  avId: "20251215105701-op0w1p9",
+  updates: [
+    { entryId: "row-id-1", changes: [{ fieldId: "col-status", type: "select", content: "Done" }] },
+    { entryId: "row-id-2", changes: [{ fieldId: "col-priority", type: "select", content: "High" }] }
+  ]
+)
+→ { updatedCount: 2, entryIds: ["row-id-1", "row-id-2"] }
+```
+
 ---
 
 ### Documents
@@ -421,7 +494,11 @@ doc_rename(id: "20251216093012-abc1234", title: "New Title")
 ```
 # Safe: refuses if children exist
 doc_delete(id: "20251216093012-abc1234")
-→ error: "Suppression refusée : le document a 2 enfant(s). ..."
+→ error: "Deletion refused: document has 2 child(ren). Use cascade:true to delete recursively..."
+
+# Preview what would be deleted (no changes made)
+doc_delete(id: "20251216093012-abc1234", cascade: true, dryRun: true)
+→ { id, deletedChildren: [{id, hPath}, ...], childCount: 2, dryRun: true }
 
 # Recursive: deletes all children depth-first, then parent
 doc_delete(id: "20251216093012-abc1234", cascade: true)
