@@ -21,6 +21,13 @@ export interface AVColumn {
   type: string;
 }
 
+export interface AVField {
+  id: string;
+  name: string;
+  type: string;
+  options?: any[];
+}
+
 export interface AVRow {
   id: string;
   cells: Record<string, any>;
@@ -487,6 +494,277 @@ export class AttributeViewService {
     }
 
     return { avId, docId, name: dbName, notebookId: notebookId.trim() };
+  }
+
+  // ==================== Entry management ====================
+
+  /**
+   * Get a single entry by ID.
+   * Uses renderDatabase and filters — single HTTP call.
+   */
+  async getEntry(avId: string, entryId: string): Promise<AVRow | null> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    if (!entryId?.trim()) throw new Error('entryId is required');
+    const db = await this.renderDatabase(avId);
+    return db.entries.find((r: AVRow) => r.id === entryId.trim()) ?? null;
+  }
+
+  /**
+   * Create multiple entries in a single getFile → mutate → putFile call.
+   * entries: [{ name?, values: [{ fieldId, type, content }] }]
+   */
+  async bulkCreateEntries(
+    avId: string,
+    entries: Array<{ name?: string; values?: AVCreateRowValue[] }>
+  ): Promise<AVRow[]> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    if (!entries?.length) throw new Error('entries array must not be empty');
+
+    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
+    const dbJson = await this.client.fileGet(avHttpPath);
+    if (!dbJson || typeof dbJson !== 'object') {
+      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+    }
+
+    const keyValues: any[] = dbJson.keyValues ?? [];
+    const pkEntry = keyValues.find((kv: any) => kv.key?.type === 'block');
+    if (!pkEntry) throw new Error('Primary field of type "block" not found in this database');
+
+    const sysTypes = new Set(['created', 'updated', 'lineNumber', 'template', 'rollup', 'relation']);
+    const now = Date.now();
+    const createdIds: string[] = [];
+
+    for (const entry of entries) {
+      const rowId = this.generateSiyuanId();
+      createdIds.push(rowId);
+      const name = entry.name ?? '';
+      const values = entry.values ?? [];
+
+      if (!pkEntry.values) pkEntry.values = [];
+      pkEntry.values.push({
+        id: this.generateSiyuanId(),
+        keyID: pkEntry.key.id,
+        blockID: rowId,
+        type: 'block',
+        isDetached: true,
+        createdAt: now,
+        updatedAt: now,
+        block: { id: rowId, content: name, created: now, updated: now }
+      });
+
+      for (const v of values.filter((vv: AVCreateRowValue) => vv.fieldId !== pkEntry.key.id)) {
+        const colEntry = keyValues.find((kv: any) => kv.key?.id === v.fieldId);
+        if (!colEntry) continue;
+        const colType = colEntry.key.type as string;
+        if (sysTypes.has(colType)) continue;
+        if (!colEntry.values) colEntry.values = [];
+        const typeData = this.buildJsonValue(v);
+        colEntry.values.push({
+          id: this.generateSiyuanId(),
+          keyID: v.fieldId,
+          blockID: rowId,
+          type: colType,
+          createdAt: now,
+          updatedAt: now,
+          ...typeData
+        });
+      }
+    }
+
+    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
+
+    const rendered = await this.renderDatabase(avId);
+    return rendered.entries.filter((r: AVRow) => createdIds.includes(r.id));
+  }
+
+  /**
+   * Update multiple entries in a single batchSetAttributeViewBlockAttrs call.
+   * updates: [{ entryId, changes: [{ fieldId, type, content }] }]
+   */
+  async bulkUpdateEntries(
+    avId: string,
+    updates: Array<{ entryId: string; changes: AVCreateRowValue[] }>
+  ): Promise<{ updatedCount: number; entryIds: string[] }> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    if (!updates?.length) throw new Error('updates array must not be empty');
+
+    const values: any[] = [];
+    for (const u of updates) {
+      for (const change of u.changes) {
+        values.push({
+          keyID: change.fieldId,
+          rowID: u.entryId,
+          value: this.buildUpdateValue(change)
+        });
+      }
+    }
+
+    const response = await this.client.request('/api/av/batchSetAttributeViewBlockAttrs', {
+      avID: avId,
+      values
+    });
+
+    if (!response || response.code !== 0) {
+      throw new Error(`Bulk update failed: ${response?.msg ?? 'unknown error'}`);
+    }
+
+    return {
+      updatedCount: updates.length,
+      entryIds: updates.map(u => u.entryId)
+    };
+  }
+
+  // ==================== Field management ====================
+
+  /**
+   * List all fields of a database without loading entries.
+   * Reads the AV JSON directly (getFile) — single HTTP call.
+   */
+  async listFields(avId: string): Promise<AVField[]> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
+    const dbJson = await this.client.fileGet(avHttpPath);
+    if (!dbJson || typeof dbJson !== 'object') {
+      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+    }
+    const keyValues: any[] = dbJson.keyValues ?? [];
+    return keyValues
+      .filter((kv: any) => kv.key)
+      .map((kv: any) => ({
+        id: kv.key.id,
+        name: kv.key.name,
+        type: kv.key.type,
+        options: kv.key.options ?? undefined
+      }));
+  }
+
+  /**
+   * Add a new field to a database.
+   * Uses getFile → mutate → putFile (same pattern as createEntry/createDatabase).
+   * Rejected types: relation, rollup, created, updated, lineNumber, template.
+   */
+  async createField(
+    avId: string,
+    name: string,
+    type: string,
+    options?: any
+  ): Promise<AVField> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    if (!name?.trim()) throw new Error('name is required');
+
+    const WRITABLE_TYPES = new Set([
+      'text','number','select','mSelect','date','checkbox',
+      'url','email','phone','mAsset'
+    ]);
+    const SYSTEM_TYPES = new Set(['relation','rollup','created','updated','lineNumber','template']);
+
+    if (SYSTEM_TYPES.has(type)) {
+      throw new Error(`Field type "${type}" is system-managed and cannot be created via MCP.`);
+    }
+    if (!WRITABLE_TYPES.has(type)) {
+      throw new Error(`Unknown field type: "${type}". Valid: ${[...WRITABLE_TYPES].join(', ')}`);
+    }
+
+    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
+    const dbJson = await this.client.fileGet(avHttpPath);
+    if (!dbJson || typeof dbJson !== 'object') {
+      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+    }
+
+    const fieldId = this.generateSiyuanId();
+    const key: any = { id: fieldId, name: name.trim(), type, icon: '', desc: '' };
+
+    if (type === 'number')                   key.numberFormat = '';
+    if (type === 'select' || type === 'mSelect') {
+      key.options = Array.isArray(options)
+        ? options.map((o: any) => ({ name: o.name ?? '', color: o.color ?? 'default' }))
+        : [];
+    }
+    if (type === 'date' && options) {
+      if (options.format)   key.format   = options.format;
+      if (options.autoFill) key.autoFill = options.autoFill;
+    }
+
+    const keyValues: any[] = dbJson.keyValues ?? [];
+    keyValues.push({ key, values: [] });
+
+    // Also add the column to the view table layout
+    const views: any[] = dbJson.views ?? [];
+    if (views.length > 0 && views[0].table?.columns) {
+      views[0].table.columns.push({ id: fieldId, width: '', hidden: false, pin: false, icon: '', calc: null });
+    }
+
+    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
+    return { id: fieldId, name: name.trim(), type, options: key.options };
+  }
+
+  /**
+   * Update an existing field's name or options.
+   * Uses getFile → mutate → putFile.
+   */
+  async updateField(
+    avId: string,
+    fieldId: string,
+    changes: { name?: string; options?: any[] }
+  ): Promise<AVField> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    if (!fieldId?.trim()) throw new Error('fieldId is required');
+
+    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
+    const dbJson = await this.client.fileGet(avHttpPath);
+    if (!dbJson || typeof dbJson !== 'object') {
+      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+    }
+
+    const keyValues: any[] = dbJson.keyValues ?? [];
+    const kv = keyValues.find((k: any) => k.key?.id === fieldId.trim());
+    if (!kv) throw new Error(`Field "${fieldId}" not found in database`);
+
+    if (changes.name !== undefined) kv.key.name = changes.name.trim();
+    if (changes.options !== undefined) {
+      kv.key.options = changes.options.map((o: any) => ({
+        name: o.name ?? '',
+        color: o.color ?? 'default'
+      }));
+    }
+
+    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
+    return { id: kv.key.id, name: kv.key.name, type: kv.key.type, options: kv.key.options };
+  }
+
+  /**
+   * Delete a field from a database.
+   * Refuses to delete the primary key field (block type).
+   * Uses getFile → mutate → putFile.
+   */
+  async deleteField(avId: string, fieldId: string): Promise<void> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    if (!fieldId?.trim()) throw new Error('fieldId is required');
+
+    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
+    const dbJson = await this.client.fileGet(avHttpPath);
+    if (!dbJson || typeof dbJson !== 'object') {
+      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+    }
+
+    const keyValues: any[] = dbJson.keyValues ?? [];
+    const kv = keyValues.find((k: any) => k.key?.id === fieldId.trim());
+    if (!kv) throw new Error(`Field "${fieldId}" not found in database`);
+    if (kv.key.type === 'block') {
+      throw new Error('Cannot delete the primary key field (block type)');
+    }
+
+    dbJson.keyValues = keyValues.filter((k: any) => k.key?.id !== fieldId.trim());
+
+    // Remove from view columns too
+    const views: any[] = dbJson.views ?? [];
+    for (const view of views) {
+      if (view.table?.columns) {
+        view.table.columns = view.table.columns.filter((c: any) => c.id !== fieldId.trim());
+      }
+    }
+
+    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
   }
 
   // ==================== Helpers privés ====================

@@ -11,7 +11,7 @@ import { createSiyuanClient } from '../siyuanClient/index';
 import type { SiyuanClient } from '../siyuanClient/index';
 import { BatchService } from '../services/batch-service';
 import { TagService } from '../services/tag-service';
-import { AttributeViewService, AVColumnSpec } from '../services/av-service';
+import { AttributeViewService, AVColumnSpec, AVField } from '../services/av-service';
 
 import { ReferenceService } from '../services/reference-service';
 import { AdvancedSearchService } from '../services/advanced-search-service';
@@ -692,6 +692,167 @@ export class MergedTools {
         }
       },
 
+      // ==================== Attribute View — Entry Management ====================
+      {
+        name: 'av_get_entry',
+        description: 'Get a single database entry by ID. Faster than av_render_database when you only need one entry.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            entryId: { type: 'string', description: 'Entry ID (from av_render_database or av_query_database)' }
+          },
+          required: ['avId', 'entryId']
+        }
+      },
+      {
+        name: 'av_bulk_create_entries',
+        description: 'Create multiple entries in a single database write. More efficient than calling av_create_entry N times.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            entries: {
+              type: 'array',
+              description: 'List of entries to create',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Entry name (primary field content). Empty if omitted.' },
+                  values: {
+                    type: 'array',
+                    description: 'Initial field values',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        fieldId: { type: 'string', description: 'Field ID (from av_list_fields or av_render_database)' },
+                        type: { type: 'string', enum: ['text','number','checkbox','select','mSelect','date','url','email','phone'], description: 'Field type' },
+                        content: { description: 'Value (same format as av_create_entry)' }
+                      },
+                      required: ['fieldId', 'type', 'content']
+                    }
+                  }
+                }
+              },
+              minItems: 1
+            }
+          },
+          required: ['avId', 'entries']
+        }
+      },
+      {
+        name: 'av_bulk_update_entries',
+        description: 'Update multiple entries in a single API call. More efficient than calling av_update_entry N times.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            updates: {
+              type: 'array',
+              description: 'List of entry updates',
+              items: {
+                type: 'object',
+                properties: {
+                  entryId: { type: 'string', description: 'Entry ID to update' },
+                  changes: {
+                    type: 'array',
+                    description: 'Field changes',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        fieldId: { type: 'string', description: 'Field ID' },
+                        type: { type: 'string', enum: ['text','number','checkbox','select','mSelect','date','url','email','phone'] },
+                        content: { description: 'New value' }
+                      },
+                      required: ['fieldId', 'type', 'content']
+                    }
+                  }
+                },
+                required: ['entryId', 'changes']
+              },
+              minItems: 1
+            }
+          },
+          required: ['avId', 'updates']
+        }
+      },
+
+      // ==================== Attribute View — Field Management ====================
+      {
+        name: 'av_list_fields',
+        description: 'List all fields of a database (no entries loaded). Faster than av_render_database when you only need field names and IDs.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' }
+          },
+          required: ['avId']
+        }
+      },
+      {
+        name: 'av_create_field',
+        description: 'Add a new field to a database. Supported types: text, number, checkbox, select, mSelect, date, url, email, phone, mAsset. System types (relation, rollup, created, updated, lineNumber, template) are rejected.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            name: { type: 'string', description: 'Field name' },
+            type: {
+              type: 'string',
+              enum: ['text','number','checkbox','select','mSelect','date','url','email','phone','mAsset'],
+              description: 'Field type'
+            },
+            options: {
+              description: 'For select/mSelect: [{name, color}]. For date: {format?, autoFill?}. For number: {format?}.'
+            }
+          },
+          required: ['avId', 'name', 'type']
+        }
+      },
+      {
+        name: 'av_update_field',
+        description: 'Update a field\'s name or options. Get fieldId from av_list_fields or av_render_database.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            fieldId: { type: 'string', description: 'Field ID (from av_list_fields or av_render_database)' },
+            changes: {
+              type: 'object',
+              description: 'Changes to apply',
+              properties: {
+                name: { type: 'string', description: 'New field name (optional)' },
+                options: {
+                  type: 'array',
+                  description: 'For select/mSelect: new option list [{name, color}] — replaces existing',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      color: { type: 'string', description: 'e.g. default, red, orange, yellow, green, blue' }
+                    },
+                    required: ['name']
+                  }
+                }
+              }
+            }
+          },
+          required: ['avId', 'fieldId', 'changes']
+        }
+      },
+      {
+        name: 'av_delete_field',
+        description: 'Delete a field from a database. Cannot delete the primary key field (block type).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            avId: { type: 'string', description: 'Database ID (Attribute View block ID)' },
+            fieldId: { type: 'string', description: 'Field ID to delete (from av_list_fields or av_render_database)' }
+          },
+          required: ['avId', 'fieldId']
+        }
+      },
+
       // ==================== System & Infrastructure ====================
       {
         name: 'siyuan_workspace_map',
@@ -1191,6 +1352,29 @@ export class MergedTools {
 
         case 'av_create_database':
           return await this.handleAvCreateDatabase(args.notebookId, args.name, args.fields);
+
+        // ==================== Attribute View — Entry Management ====================
+        case 'av_get_entry':
+          return await this.handleAvGetEntry(args.avId, args.entryId);
+
+        case 'av_bulk_create_entries':
+          return await this.handleAvBulkCreateEntries(args.avId, args.entries);
+
+        case 'av_bulk_update_entries':
+          return await this.handleAvBulkUpdateEntries(args.avId, args.updates);
+
+        // ==================== Attribute View — Field Management ====================
+        case 'av_list_fields':
+          return await this.handleAvListFields(args.avId);
+
+        case 'av_create_field':
+          return await this.handleAvCreateField(args.avId, args.name, args.type, args.options);
+
+        case 'av_update_field':
+          return await this.handleAvUpdateField(args.avId, args.fieldId, args.changes ?? {});
+
+        case 'av_delete_field':
+          return await this.handleAvDeleteField(args.avId, args.fieldId);
 
         // ==================== System & Infrastructure ====================
         case 'siyuan_workspace_map': {
@@ -1852,6 +2036,103 @@ export class MergedTools {
       );
     } catch (error: any) {
       return createStandardResponse(false, 'Error creating database', null, error?.message);
+    }
+  }
+
+  // ==================== Entry management handlers ====================
+
+  private async handleAvGetEntry(avId: string, entryId: string): Promise<StandardResponse> {
+    try {
+      if (!avId || !entryId) {
+        return createStandardResponse(false, 'Missing parameters', null, 'avId and entryId are required');
+      }
+      const entry = await this.avService.getEntry(avId, entryId);
+      if (!entry) {
+        return createStandardResponse(false, `Entry "${entryId}" not found in database`, null, 'Entry not found');
+      }
+      return createStandardResponse(true, `Entry "${entryId}" found`, entry);
+    } catch (error: any) {
+      return createStandardResponse(false, 'Error getting entry', null, error?.message);
+    }
+  }
+
+  private async handleAvBulkCreateEntries(avId: string, entries: any[]): Promise<StandardResponse> {
+    try {
+      if (!avId || !entries?.length) {
+        return createStandardResponse(false, 'Missing parameters', null, 'avId and entries (non-empty array) are required');
+      }
+      const created = await this.avService.bulkCreateEntries(avId, entries);
+      return createStandardResponse(
+        true,
+        `${created.length} entry/entries created`,
+        { avId, entries: created, count: created.length }
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Error creating entries', null, error?.message);
+    }
+  }
+
+  private async handleAvBulkUpdateEntries(avId: string, updates: any[]): Promise<StandardResponse> {
+    try {
+      if (!avId || !updates?.length) {
+        return createStandardResponse(false, 'Missing parameters', null, 'avId and updates (non-empty array) are required');
+      }
+      const result = await this.avService.bulkUpdateEntries(avId, updates);
+      return createStandardResponse(
+        true,
+        `${result.updatedCount} entry/entries updated`,
+        { avId, ...result }
+      );
+    } catch (error: any) {
+      return createStandardResponse(false, 'Error updating entries', null, error?.message);
+    }
+  }
+
+  // ==================== Field management handlers ====================
+
+  private async handleAvListFields(avId: string): Promise<StandardResponse> {
+    try {
+      if (!avId) return createStandardResponse(false, 'Missing parameter', null, 'avId is required');
+      const fields = await this.avService.listFields(avId);
+      return createStandardResponse(true, `${fields.length} field(s) found`, { avId, fields });
+    } catch (error: any) {
+      return createStandardResponse(false, 'Error listing fields', null, error?.message);
+    }
+  }
+
+  private async handleAvCreateField(avId: string, name: string, type: string, options?: any): Promise<StandardResponse> {
+    try {
+      if (!avId || !name || !type) {
+        return createStandardResponse(false, 'Missing parameters', null, 'avId, name and type are required');
+      }
+      const field = await this.avService.createField(avId, name, type, options);
+      return createStandardResponse(true, `Field "${field.name}" (${field.type}) created (ID: ${field.id})`, field);
+    } catch (error: any) {
+      return createStandardResponse(false, 'Error creating field', null, error?.message);
+    }
+  }
+
+  private async handleAvUpdateField(avId: string, fieldId: string, changes: any): Promise<StandardResponse> {
+    try {
+      if (!avId || !fieldId) {
+        return createStandardResponse(false, 'Missing parameters', null, 'avId and fieldId are required');
+      }
+      const field = await this.avService.updateField(avId, fieldId, changes);
+      return createStandardResponse(true, `Field "${field.name}" updated`, field);
+    } catch (error: any) {
+      return createStandardResponse(false, 'Error updating field', null, error?.message);
+    }
+  }
+
+  private async handleAvDeleteField(avId: string, fieldId: string): Promise<StandardResponse> {
+    try {
+      if (!avId || !fieldId) {
+        return createStandardResponse(false, 'Missing parameters', null, 'avId and fieldId are required');
+      }
+      await this.avService.deleteField(avId, fieldId);
+      return createStandardResponse(true, `Field "${fieldId}" deleted`, { avId, fieldId });
+    } catch (error: any) {
+      return createStandardResponse(false, 'Error deleting field', null, error?.message);
     }
   }
 }
