@@ -94,7 +94,7 @@ export class MergedTools {
       // ==================== 标准工具 ====================
       {
         name: 'list_notebooks',
-        description: 'List all SiYuan notebooks',
+        description: 'List all notebooks',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -103,38 +103,38 @@ export class MergedTools {
       },
       {
         name: 'search_content',
-        description: 'Full-text keyword search across SiYuan notes',
+        description: 'Full-text search across notes',
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: 'Search keyword' },
-            limit: { type: 'number', description: 'Maximum number of results to return', default: 10 }
+            query: { type: 'string', description: 'Keyword' },
+            limit: { type: 'number', description: 'Max results', default: 10 }
           },
           required: ['query']
         }
       },
       {
         name: 'create_notebook',
-        description: 'Create a new SiYuan notebook',
+        description: 'Create a new notebook',
         inputSchema: {
           type: 'object',
           properties: {
             name: { type: 'string', description: 'Notebook name' },
-            icon: { type: 'string', description: 'Notebook icon', default: '📔' }
+            icon: { type: 'string', description: 'Icon emoji', default: '📔' }
           },
           required: ['name']
         }
       },
       {
         name: 'create_subdocument',
-        description: 'Create a child document under a parent document',
+        description: 'Create a child document under a parent path',
         inputSchema: {
           type: 'object',
           properties: {
             notebook: { type: 'string', description: 'Notebook ID' },
-            parentPath: { type: 'string', description: 'Parent document path' },
-            title: { type: 'string', description: 'Child document title' },
-            content: { type: 'string', description: 'Child document content (Markdown)', default: '' }
+            parentPath: { type: 'string', description: 'Parent path' },
+            title: { type: 'string', description: 'Title' },
+            content: { type: 'string', description: 'Content (Markdown)', default: '' }
           },
           required: ['notebook', 'parentPath', 'title']
         }
@@ -143,7 +143,7 @@ export class MergedTools {
       // ==================== 增强API工具 ====================
       {
         name: 'batch_create_blocks',
-        description: 'Batch create multiple blocks',
+        description: 'Create multiple blocks in one call',
         inputSchema: {
           type: 'object',
           properties: {
@@ -158,7 +158,7 @@ export class MergedTools {
                 },
                 required: ['content']
               },
-              description: 'List of batch create requests'
+              description: 'Batch requests'
             }
           },
           required: ['requests']
@@ -166,7 +166,7 @@ export class MergedTools {
       },
       {
         name: 'batch_update_blocks',
-        description: 'Batch update multiple blocks',
+        description: 'Update multiple blocks in one call',
         inputSchema: {
           type: 'object',
           properties: {
@@ -180,7 +180,7 @@ export class MergedTools {
                 },
                 required: ['id', 'content']
               },
-              description: 'List of batch update requests'
+              description: 'Batch update requests'
             }
           },
           required: ['requests']
@@ -188,14 +188,14 @@ export class MergedTools {
       },
       {
         name: 'batch_delete_blocks',
-        description: 'Batch delete multiple content blocks (paragraphs, headings, etc.). Do NOT use for documents — use doc_delete instead.',
+        description: 'Delete multiple content blocks. NOT for documents — use doc_delete.',
         inputSchema: {
           type: 'object',
           properties: {
             blockIds: {
               type: 'array',
               items: { type: 'string' },
-              description: 'List of block IDs to delete'
+              description: 'Block IDs to delete'
             }
           },
           required: ['blockIds']
@@ -203,7 +203,7 @@ export class MergedTools {
       },
       {
         name: 'get_all_tags',
-        description: 'Get all tags with usage statistics',
+        description: 'List all tags with usage counts',
         inputSchema: {
           type: 'object',
           properties: {
@@ -229,8 +229,8 @@ export class MergedTools {
         inputSchema: {
           type: 'object',
           properties: {
-            keyword: { type: 'string', description: 'Search keyword' },
-            limit: { type: 'number', description: 'Maximum number of results to return', default: 20 }
+            keyword: { type: 'string', description: 'Keyword' },
+            limit: { type: 'number', description: 'Max results', default: 20 }
           },
           required: ['keyword']
         }
@@ -258,7 +258,7 @@ export class MergedTools {
       },
       {
         name: 'get_block_tags',
-        description: 'Get all tags attached to a specific block',
+        description: 'Get all tags on a block',
         inputSchema: {
           type: 'object',
           properties: {
@@ -275,7 +275,7 @@ export class MergedTools {
           properties: {
             blockId: { type: 'string', description: 'Block ID' },
             includeBacklinks: { type: 'boolean', description: 'Include backlinks', default: true },
-            maxDepth: { type: 'number', description: 'Maximum depth', default: 3 }
+            maxDepth: { type: 'number', description: 'Max depth', default: 3 }
           },
           required: ['blockId']
         }
@@ -312,7 +312,7 @@ export class MergedTools {
       },
       {
         name: 'advanced_search',
-        description: 'Advanced multi-criteria search (tags, date range, block type)',
+        description: 'Advanced search with filters (type, notebook, date range)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -336,28 +336,28 @@ export class MergedTools {
               enum: ['paragraph', 'heading', 'list', 'code', 'table'],
               description: 'Block type filter (optional)'
             },
-            limit: { type: 'number', description: 'Maximum number of results to return', default: 50 }
+            limit: { type: 'number', description: 'Max results', default: 50 }
           },
           required: ['query']
         }
       },
       {
         name: 'quick_text_search',
-        description: 'Quick text search with case-sensitivity and whole-word options',
+        description: 'Quick full-text search',
         inputSchema: {
           type: 'object',
           properties: {
             text: { type: 'string', description: 'Text to search for' },
             caseSensitive: { type: 'boolean', description: 'Case-sensitive search', default: false },
             wholeWord: { type: 'boolean', description: 'Whole-word match', default: false },
-            limit: { type: 'number', description: 'Maximum number of results to return', default: 20 }
+            limit: { type: 'number', description: 'Max results', default: 20 }
           },
           required: ['text']
         }
       },
       {
         name: 'search_by_tags',
-        description: 'Search content by one or multiple tags',
+        description: 'Search notes by tag list',
         inputSchema: {
           type: 'object',
           properties: {
@@ -372,14 +372,14 @@ export class MergedTools {
               description: 'Match mode: "any" (any tag matches) or "all" (all tags must match)',
               default: 'any'
             },
-            limit: { type: 'number', description: 'Maximum number of results to return', default: 30 }
+            limit: { type: 'number', description: 'Max results', default: 30 }
           },
           required: ['tags']
         }
       },
       {
         name: 'search_by_date_range',
-        description: 'Search content by creation or modification date range',
+        description: 'Search notes by creation/update date range',
         inputSchema: {
           type: 'object',
           properties: {
@@ -391,14 +391,14 @@ export class MergedTools {
               description: 'Date type: "created" or "updated"',
               default: 'updated'
             },
-            limit: { type: 'number', description: 'Maximum number of results to return', default: 50 }
+            limit: { type: 'number', description: 'Max results', default: 50 }
           },
           required: ['startDate', 'endDate']
         }
       },
       {
         name: 'recursive_search_notes',
-        description: 'Deep recursive search with optional fuzzy matching',
+        description: 'Recursively search notes in a notebook subtree',
         inputSchema: {
           type: 'object',
           properties: {
@@ -410,7 +410,7 @@ export class MergedTools {
                 maxDepth: { type: 'number', description: 'Maximum search depth', default: 3 },
                 includeContent: { type: 'boolean', description: 'Include content', default: true },
                 fuzzyMatch: { type: 'boolean', description: 'Enable fuzzy matching', default: false },
-                limit: { type: 'number', description: 'Maximum number of results to return', default: 50 }
+                limit: { type: 'number', description: 'Max results', default: 50 }
               },
               description: 'Search options (optional)'
             }
@@ -420,7 +420,7 @@ export class MergedTools {
       },
       {
         name: 'batch_read_all_documents',
-        description: 'Batch-read all documents in a notebook',
+        description: 'Read all documents in a notebook',
         inputSchema: {
           type: 'object',
           properties: {
@@ -443,7 +443,7 @@ export class MergedTools {
       // ==================== Document CRUD ====================
       {
         name: 'doc_get',
-        description: 'Lit le contenu Markdown d\'un document SiYuan par son ID. Retourne le contenu propre et le chemin lisible (hPath).',
+        description: 'Get document content and metadata by ID',
         inputSchema: {
           type: 'object',
           properties: {
@@ -457,7 +457,7 @@ export class MergedTools {
       },
       {
         name: 'doc_rename',
-        description: 'Rename a SiYuan document by ID.',
+        description: 'Rename a document',
         inputSchema: {
           type: 'object',
           properties: {
@@ -475,7 +475,7 @@ export class MergedTools {
       },
       {
         name: 'doc_delete',
-        description: 'Delete a document (sends to SiYuan trash). Refuses if children exist unless cascade:true. Everything goes to trash (recoverable).',
+        description: 'Delete a document by ID. Use this (not blocks_delete) for documents.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -493,7 +493,7 @@ export class MergedTools {
       },
       {
         name: 'doc_move',
-        description: 'Move one or more SiYuan documents to a new parent (document or notebook).',
+        description: 'Move document(s) to a new parent',
         inputSchema: {
           type: 'object',
           properties: {
@@ -515,7 +515,7 @@ export class MergedTools {
       // ==================== Attribute View (Database) Tools ====================
       {
         name: 'av_list_databases',
-        description: 'List all Attribute View databases in the workspace (name, column count, row count).',
+        description: 'List all Attribute View databases',
         inputSchema: {
           type: 'object',
           properties: {
@@ -529,7 +529,7 @@ export class MergedTools {
       },
       {
         name: 'av_render_database',
-        description: 'Read a full Attribute View database: all columns (with types) and all rows (with parsed values).',
+        description: 'Read full database: columns and all rows',
         inputSchema: {
           type: 'object',
           properties: {
@@ -543,7 +543,7 @@ export class MergedTools {
       },
       {
         name: 'av_delete_row',
-        description: 'Supprime une ou plusieurs lignes d\'une database Attribute View. Opération irréversible.',
+        description: 'Delete rows from a database',
         inputSchema: {
           type: 'object',
           properties: {
@@ -562,7 +562,7 @@ export class MergedTools {
       },
       {
         name: 'av_update_row',
-        description: 'Met à jour une ou plusieurs cellules d\'une ligne dans une database Attribute View en un seul appel (/api/av/batchSetAttributeViewBlockAttrs). Utiliser av_render_database pour obtenir les keyIds des colonnes.',
+        description: 'Update cell values in a database row',
         inputSchema: {
           type: 'object',
           properties: {
@@ -600,7 +600,7 @@ export class MergedTools {
       },
       {
         name: 'av_create_row',
-        description: 'Create a new detached row in an Attribute View database. Returns the created row with its ID and cell values.',
+        description: 'Add a new row to a database',
         inputSchema: {
           type: 'object',
           properties: {
@@ -637,7 +637,7 @@ export class MergedTools {
       },
       {
         name: 'av_query_database',
-        description: 'Filtre les entrées d\'une database Attribute View par colonne et valeur (recherche partielle insensible à la casse).',
+        description: 'Filter database rows by column value',
         inputSchema: {
           type: 'object',
           properties: {
@@ -659,7 +659,7 @@ export class MergedTools {
       },
       {
         name: 'av_create_database',
-        description: 'Crée une nouvelle database Attribute View dans un notebook SiYuan. Crée le document + insère la database dedans. Retourne l\'avId pour utilisation avec les autres outils av_*.',
+        description: 'Create a new Attribute View database (SiYuan DB with typed columns)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -695,12 +695,12 @@ export class MergedTools {
       // ==================== System & Infrastructure ====================
       {
         name: 'system_health',
-        description: 'Check SiYuan connection status and server health',
+        description: 'Check SiYuan server connection',
         inputSchema: { type: 'object', properties: {}, required: [] }
       },
       {
         name: 'system_discover_ports',
-        description: 'Auto-discover the SiYuan port (scans 6806–6808)',
+        description: 'Auto-discover SiYuan port (scans 6806–6808)',
         inputSchema: { type: 'object', properties: {}, required: [] }
       },
       {
@@ -725,7 +725,7 @@ export class MergedTools {
       },
       {
         name: 'blocks_create',
-        description: 'Insert a new block',
+        description: 'Insert a new block into a document',
         inputSchema: {
           type: 'object',
           properties: {
@@ -738,7 +738,7 @@ export class MergedTools {
       },
       {
         name: 'blocks_update',
-        description: 'Update a block content by ID',
+        description: 'Update block content by ID',
         inputSchema: {
           type: 'object',
           properties: {
@@ -750,7 +750,7 @@ export class MergedTools {
       },
       {
         name: 'blocks_delete',
-        description: 'Delete a content block (paragraph, heading, list item, code block, etc.) by ID. Do NOT use for documents — use doc_delete instead.',
+        description: 'Delete a content block by ID. NOT for documents — use doc_delete.',
         inputSchema: {
           type: 'object',
           properties: { id: { type: 'string', description: 'Block ID' } },
@@ -759,7 +759,7 @@ export class MergedTools {
       },
       {
         name: 'blocks_move',
-        description: 'Move a block to a new position',
+        description: 'Move a block to a new parent or position',
         inputSchema: {
           type: 'object',
           properties: {
@@ -787,7 +787,7 @@ export class MergedTools {
       },
       {
         name: 'docs_list',
-        description: 'List documents in a notebook by path',
+        description: 'List documents in a notebook',
         inputSchema: {
           type: 'object',
           properties: {
@@ -804,8 +804,8 @@ export class MergedTools {
         inputSchema: {
           type: 'object',
           properties: {
-            file: { type: 'string', description: 'File path or base64-encoded content' },
-            assetsDirPath: { type: 'string', description: 'Assets directory path' }
+            file: { type: 'string', description: 'File path or base64' },
+            assetsDirPath: { type: 'string', description: 'Assets dir path' }
           },
           required: ['file', 'assetsDirPath']
         }
@@ -829,7 +829,7 @@ export class MergedTools {
       },
       {
         name: 'assets_missing',
-        description: 'Find missing (referenced but absent) asset files',
+        description: 'Find referenced but missing asset files',
         inputSchema: { type: 'object', properties: {}, required: [] }
       },
       {
@@ -838,7 +838,7 @@ export class MergedTools {
         inputSchema: {
           type: 'object',
           properties: {
-            oldPath: { type: 'string', description: 'Original path' },
+            oldPath: { type: 'string', description: 'Old path' },
             newPath: { type: 'string', description: 'New path' }
           },
           required: ['oldPath', 'newPath']
@@ -856,7 +856,7 @@ export class MergedTools {
       // ==================== Context ====================
       {
         name: 'context_session_create',
-        description: 'Create a new context session',
+        description: 'Create a context session for multi-step tasks',
         inputSchema: {
           type: 'object',
           properties: { userId: { type: 'string', description: 'User ID (optional)' } },
@@ -870,7 +870,7 @@ export class MergedTools {
           type: 'object',
           properties: {
             sessionId: { type: 'string', description: 'Session ID' },
-            key: { type: 'string', description: 'Specific data key (optional)' }
+            key: { type: 'string', description: 'Key (optional)' }
           },
           required: ['sessionId']
         }
@@ -890,15 +890,15 @@ export class MergedTools {
       },
       {
         name: 'context_reference_add',
-        description: 'Add a reference to a context session',
+        description: 'Add a block/doc/selection reference to a session',
         inputSchema: {
           type: 'object',
           properties: {
             sessionId: { type: 'string', description: 'Session ID' },
             type: { type: 'string', enum: ['block', 'document', 'selection'], description: 'Reference type' },
             id: { type: 'string', description: 'Reference ID' },
-            content: { type: 'string', description: 'Content (required for selection type)' },
-            metadata: { type: 'object', description: 'Metadata (optional)' }
+            content: { type: 'string', description: 'Content (for selection)' },
+            metadata: { type: 'object', description: 'Metadata' }
           },
           required: ['sessionId', 'type', 'id']
         }
@@ -910,14 +910,14 @@ export class MergedTools {
           type: 'object',
           properties: {
             sessionId: { type: 'string', description: 'Session ID' },
-            type: { type: 'string', enum: ['block', 'document', 'selection'], description: 'Reference type filter (optional)' }
+            type: { type: 'string', enum: ['block', 'document', 'selection'], description: 'Type filter' }
           },
           required: ['sessionId']
         }
       },
       {
         name: 'context_merge',
-        description: 'Merge context session data',
+        description: 'Merge and summarize context session data',
         inputSchema: {
           type: 'object',
           properties: {
@@ -939,15 +939,15 @@ export class MergedTools {
       // ==================== Resources ====================
       {
         name: 'resources_discover',
-        description: 'Discover available SiYuan resources (documents, blocks, notebooks)',
+        description: 'Browse available resources (docs, blocks, notebooks)',
         inputSchema: {
           type: 'object',
           properties: {
             type: { type: 'string', enum: ['document', 'block', 'notebook'], description: 'Resource type filter' },
             notebook: { type: 'string', description: 'Notebook ID filter (optional)' },
             query: { type: 'string', description: 'Search query' },
-            offset: { type: 'number', description: 'Pagination offset', default: 0 },
-            limit: { type: 'number', description: 'Maximum results', default: 50 },
+            offset: { type: 'number', description: 'Offset', default: 0 },
+            limit: { type: 'number', description: 'Max results', default: 50 },
             sortBy: { type: 'string', enum: ['created', 'updated', 'name'], description: 'Sort field', default: 'updated' },
             sortOrder: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order', default: 'desc' }
           },
@@ -956,33 +956,33 @@ export class MergedTools {
       },
       {
         name: 'resources_search',
-        description: 'Search SiYuan resources by query string',
+        description: 'Search resources by query',
         inputSchema: {
           type: 'object',
           properties: {
             query: { type: 'string', description: 'Search query' },
             type: { type: 'string', enum: ['document', 'block', 'notebook'], description: 'Resource type filter' },
             notebook: { type: 'string', description: 'Notebook ID filter (optional)' },
-            offset: { type: 'number', description: 'Pagination offset', default: 0 },
-            limit: { type: 'number', description: 'Maximum results', default: 20 }
+            offset: { type: 'number', description: 'Offset', default: 0 },
+            limit: { type: 'number', description: 'Max results', default: 20 }
           },
           required: ['query']
         }
       },
       {
         name: 'resources_stats',
-        description: 'Get resource statistics',
+        description: 'Get resource count statistics',
         inputSchema: { type: 'object', properties: {}, required: [] }
       },
       // ==================== Prompts ====================
       {
         name: 'prompts_list',
-        description: 'List all available prompt templates',
+        description: 'List available prompt templates',
         inputSchema: { type: 'object', properties: {}, required: [] }
       },
       {
         name: 'prompts_get',
-        description: 'Get a prompt template by name with variable substitution',
+        description: 'Get a prompt template with variable substitution',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1007,7 +1007,7 @@ export class MergedTools {
       // ==================== Batch ====================
       {
         name: 'batch_create_docs',
-        description: 'Batch create multiple documents',
+        description: 'Create multiple documents in one call',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1031,7 +1031,7 @@ export class MergedTools {
       },
       {
         name: 'batch_search_queries',
-        description: 'Batch search (runs queries in parallel)',
+        description: 'Run multiple search queries in parallel',
         inputSchema: {
           type: 'object',
           properties: {
