@@ -6,72 +6,99 @@ import { PaginationOptions } from '../interfaces/index.js';
 const STATIC_GUIDES: Record<string, { name: string; description: string; content: string }> = {
   guide: {
     name: 'SiYuan MCP — Object Model & Rules',
-    description: 'SiYuan object types, IDs, and critical rules for correct tool use',
+    description: 'SiYuan object types, IDs, and critical rules for correct tool use (validated by testing)',
     content: `# SiYuan MCP — Object Model & Rules
 
 ## Object Types
 
-- **Notebook**: top-level container. Has an ID. Get IDs with: list_notebooks
-- **Document**: root block (type=d), identified by its rootID.
-  Browse with: docs_list(notebookId) | Read with: doc_get(id)
-- **Block**: content unit inside a document (paragraph, heading, list, code, table, etc.)
-  Identified by blockID. Use: blocks_get / blocks_create / blocks_update / blocks_delete
-- **Attribute View (AV)**: typed database (rows + typed columns), stored separately from documents.
-  All AV operations use: av_list_databases / av_render_database / av_create_row / av_update_row / av_delete_row
-  Never use SQL to read AV custom column values — use av_render_database only.
+- **Notebook**: top-level container. Has an ID. Get IDs: list_notebooks
+- **Document**: root block (type=d). Identified by rootID = the document block ID.
+  Browse: docs_list(notebookId, path?) | Read full content: doc_get(id)
+  docs_list returns ONE level at a time (not recursive). Path defaults to "/".
+- **Block**: content unit inside a document (paragraph, heading, list item, code block, table, etc.)
+  Identified by blockID. CRUD: blocks_get / blocks_create / blocks_update / blocks_delete
+  blocks_create needs parentID = the parent block ID (usually the document rootID).
+- **Attribute View (AV)**: typed database stored SEPARATELY from documents (not in SQLite).
+  Has rows (each with a unique rowId) and typed columns (each with a unique keyId and a name).
+  NEVER use SQL to read AV column values — SQL cannot see them. Use av_render_database.
 
-## Critical Rules
+## Critical Rules (Tested & Confirmed)
 
-1. DELETE a document   → doc_delete(id)          ← NEVER blocks_delete
-2. DELETE a content block → blocks_delete(id)     ← NEVER doc_delete
-3. AV columns: always identify by NAME, never by array index
-4. AV relation.blockIDs = row IDs (not document IDs — do not confuse)
-5. AV isDetached:true = standalone row, has no linked document
-6. Always try/catch av_render_database (databases may be in trash)
+1. DELETE document      → doc_delete(id)       ← NEVER blocks_delete for documents
+2. DELETE content block → blocks_delete(id)    ← NEVER doc_delete for blocks
+3. doc_delete on a parent does NOT cascade-delete children — children move to notebook root
+4. AV columns: ALWAYS identify by NAME using findColumn(), NEVER by array index (unstable)
+5. AV select column is stored internally as mSelect (array) — always provide as string, MCP converts
+6. AV relation.blockIDs = row IDs (not document IDs — do not confuse)
+7. AV isDetached:true = standalone row with no linked document — cannot be used as ((blockRef))
+8. Always wrap av_render_database in try/catch — database may be in trash
 
 ## Getting IDs
 
-- Notebook IDs  : list_notebooks
-- Document IDs  : docs_list(notebookId) or search_content(query) → rootID field
-- Block IDs     : doc_get(docId) returns blocks, or search_content
-- AV database IDs: av_list_databases([nameFilter])
-- AV row IDs    : av_render_database(avId) → view.rows[].id
-- AV column IDs : av_render_database(avId) → view.columns[].id  (prefer NAME over ID)
+- Notebook IDs    : list_notebooks → notebooks[].id
+- Document IDs    : docs_list(notebookId) → files[].id  OR  search_content(query) → rootID
+- Block IDs       : doc_get(docId) returns kramdown with block IDs, or search_content
+- AV database IDs : av_list_databases([nameFilter:"DB-"]) → id field
+- AV row IDs      : av_render_database(avId) → data.view.rows[].id
+- AV column IDs   : av_render_database(avId) → data.view.columns[].id  (prefer NAME)
 
-## AV Column Value Formats (for av_create_row / av_update_row)
+## AV Column Value Formats for av_create_row / av_update_row
 
   text      → "plain text"
   number    → 42
-  select    → "Option Name"
-  mSelect   → ["Option1", "Option2"]
-  date      → 1704067200000  (timestamp ms)
+  select    → "Option Name"          (single string — MCP auto-converts to mSelect internally)
+  mSelect   → ["Option1", "Option2"] (array of strings)
+  date      → 1704067200000          (Unix timestamp in milliseconds)
   checkbox  → true | false
-  url       → "https://..."
+  url       → "https://example.com"
   email     → "user@example.com"
   phone     → "+1-555-0100"
+
+## AV renderAttributeView Response Structure
+
+  data.name              → database name
+  data.id                → database ID (avId)
+  data.view.columns[]    → [{ id, name, type, ... }]
+  data.view.rows[]       → [{ id, cells: [{ value: { keyID, type, ... } }] }]
+
+  cell.value.block.content   → row title (primary key)
+  cell.value.mSelect[0].content → select value
+  cell.value.text.content    → text value
+  cell.value.number.content  → number value
+  cell.value.checkbox.checked → boolean
+  cell.value.date.content    → timestamp ms
+  cell.value.relation.blockIDs → related row IDs
+
+## What Does NOT Work (Confirmed by Testing)
+
+- appendAttributeViewDetachedBlocksWithValues → silently returns code:0 but does nothing
+- addAttributeViewKey HTTP API → silently returns code:0 but adds no column
+- SQL queries on AV custom columns (Status, Priority, etc.) → returns empty / wrong data
+- Adding columns to AV via HTTP API → must edit the JSON file directly (av_create_database handles this)
 `,
   },
   workflows: {
     name: 'SiYuan MCP — CRUD Workflows',
-    description: 'Step-by-step tool sequences for common Create / Read / Update / Delete operations',
-    content: `# SiYuan MCP — CRUD Workflows
+    description: 'Validated step-by-step tool sequences for common Create / Read / Update / Delete operations',
+    content: `# SiYuan MCP — CRUD Workflows (Validated)
 
 ## READ / BROWSE
 
 Browse workspace:
-  list_notebooks
-  → docs_list(notebookId)
-  → doc_get(docId)
+  list_notebooks                           → notebooks[].{id, name}
+  → docs_list(notebookId)                  → files[].{id, name, path}  (root level)
+  → docs_list(notebookId, path:"/Parent")  → files at that path
+  → doc_get(docId)                         → full kramdown content
 
-Search notes:
-  search_content(query)          full-text, returns blocks
-  quick_text_search(text)        fast, returns matching docs
-  advanced_search(filters)       with type/notebook/date filters
+Search notes (choose one):
+  search_content(query)                    full-text, returns matching blocks with IDs
+  quick_text_search(text)                  fast, returns docs
+  advanced_search({ query, notebook, type, ... })
 
-Read a database (AV):
-  av_list_databases([nameFilter:"DB-"])
-  → av_render_database(avId)     returns columns[] + rows[]
-  → av_query_database(avId, column:"Status", value:"In Progress")
+Read a database:
+  av_list_databases([nameFilter:"DB-"])    → [{id, name, columnCount, rowCount}]
+  → av_render_database(avId)              → {name, id, view:{columns[], rows[]}}
+  → av_query_database(avId, column:"Status", value:"In Progress")  client-side filter
 
 ---
 
@@ -80,40 +107,55 @@ Read a database (AV):
 Create notebook:
   create_notebook(name)
 
-Create document:
-  list_notebooks
+Create document in notebook:
+  list_notebooks                           → get notebookId
   → docs_create(notebookId, path:"/MyDoc", title:"My Doc")
+  path starts with "/" and is relative to notebook root.
+  closed notebook → throws error (check notebook.closed before)
 
-Create child document (under a parent):
+Create child document:
   create_subdocument(notebookId, parentPath:"/Parent", title:"Child")
 
 Add content block to a document:
-  blocks_create(content:"# My heading", parentID:docId)
+  doc_get(docId)                           → get rootID (= docId itself)
+  → blocks_create(content:"# Heading", parentID:docId)
 
-Create AV row:
-  av_render_database(avId)       note column names
-  → av_create_row(avId, name:"Row title", values:{ Status:"In Progress", Priority:"High" })
+Create AV row (confirmed working):
+  av_render_database(avId)                 → note column names
+  → av_create_row(avId, name:"Row title", values:{
+      Status: "In Progress",
+      Priority: "High",
+      Due: 1704067200000,
+      Done: false
+    })
 
-Create AV database:
-  list_notebooks
+Create AV database (confirmed working):
+  list_notebooks                           → get notebookId
   → av_create_database(notebookId, name:"DB-MyDB", columns:[
-      { name:"Name",     type:"block"  },
-      { name:"Status",   type:"select" },
-      { name:"Priority", type:"select" },
-      { name:"Due",      type:"date"   },
-      { name:"Done",     type:"checkbox" }
+      { name:"Name",     type:"block"    },  ← always include block as first column
+      { name:"Status",   type:"select"   },
+      { name:"Priority", type:"select"   },
+      { name:"Due",      type:"date"     },
+      { name:"Done",     type:"checkbox" },
+      { name:"Notes",    type:"text"     }
     ])
+  Returns avId — use immediately with other av_* tools.
 
 ---
 
 ## UPDATE
 
 Update block content:
-  blocks_update(blockId, content:"new markdown")
+  blocks_update(blockId, content:"new markdown content")
 
-Update AV cell values:
-  av_render_database(avId)       get rowId + column names
-  → av_update_row(avId, rowId, updates:{ Status:"Done", Priority:"Low" })
+Update AV cell values (confirmed working via batchSetAttributeViewBlockAttrs):
+  av_render_database(avId)                 → find rowId + column names
+  → av_update_row(avId, rowId, updates:{
+      Status: "Done",
+      Priority: "Low",
+      Due: 1706745600000
+    })
+  Multiple columns updated in one call. Column identified by name (not index).
 
 Rename document:
   doc_rename(docId, title:"New Title")
@@ -121,37 +163,37 @@ Rename document:
 Move document:
   doc_move(fromIds:[docId], toId:newParentDocId)
 
-Manage tags on a block:
-  manage_block_tags(blockId, operation:"add", tags:["tag1","tag2"])
+Tags:
+  get_all_tags()                           → all tags with counts
+  manage_block_tags(blockId, operation:"add"|"remove"|"replace", tags:["t1","t2"])
 
 ---
 
 ## DELETE
 
-Delete a document (and all its content):
-  doc_delete(docId)              ← ALWAYS use this for documents
+Delete a document:
+  doc_delete(docId)
+  ⚠ Does NOT cascade-delete child documents — children move to notebook root with new IDs.
+  Use recursively if you need to delete a tree.
 
-Delete a content block (paragraph, heading, list item…):
-  blocks_delete(blockId)         ← never use for documents
+Delete a content block:
+  blocks_delete(blockId)                   ← paragraph, heading, list item, etc.
+  NEVER use for documents.
 
-Delete AV rows:
+Delete multiple blocks:
+  batch_delete_blocks(blockIds:["id1","id2"])  ← not for documents
+
+Delete AV rows (confirmed working via removeAttributeViewBlocks with srcIDs):
   av_delete_row(avId, rowIds:["id1","id2"])
 
 ---
 
 ## BATCH OPERATIONS
 
-Create multiple blocks at once:
   batch_create_blocks(requests:[{content, parentID}, ...])
-
-Update multiple blocks at once:
   batch_update_blocks(requests:[{id, content}, ...])
-
-Delete multiple blocks at once:
-  batch_delete_blocks(blockIds:["id1","id2"])    ← not for documents
-
-Run multiple searches in parallel:
-  batch_search_queries(queries:["query1","query2"], limit:5)
+  batch_delete_blocks(blockIds:["id1","id2"])
+  batch_search_queries(queries:["q1","q2"], limit:5)
 `,
   },
 };

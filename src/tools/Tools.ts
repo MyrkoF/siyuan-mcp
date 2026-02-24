@@ -1198,22 +1198,38 @@ export class MergedTools {
           const notebooks = (nbResp?.data?.notebooks || nbResp?.notebooks || []) as any[];
           const databases = await this.avService.listDatabases() as any[];
 
-          const lines: string[] = [
-            '## SiYuan Workspace Map',
-            '',
-            '### Notebooks',
-          ];
+          const lines: string[] = ['## SiYuan Workspace Map', ''];
+
+          // Notebooks + 2 levels of documents
+          lines.push('### Notebooks & Documents');
           for (const nb of notebooks) {
-            lines.push(`- ${nb.name}: \`${nb.id}\``);
+            lines.push(`\n#### ${nb.name} \`${nb.id}\``);
+            try {
+              const l1Resp = await this.client.documents.listDocs(nb.id, '/');
+              const l1Docs = (l1Resp?.data?.files || l1Resp?.files || []) as any[];
+              for (const doc of l1Docs) {
+                lines.push(`- ${doc.name} \`${doc.id}\``);
+                try {
+                  const l2Resp = await this.client.documents.listDocs(nb.id, doc.path);
+                  const l2Docs = (l2Resp?.data?.files || l2Resp?.files || []) as any[];
+                  for (const child of l2Docs) {
+                    lines.push(`  - ${child.name} \`${child.id}\``);
+                  }
+                } catch { /* skip inaccessible children */ }
+              }
+            } catch { lines.push('  (could not list documents)'); }
           }
-          lines.push('', '### Attribute View Databases');
+
+          // AV Databases
+          lines.push('\n### Attribute View Databases');
           for (const db of databases) {
-            lines.push(`- ${db.name}: \`${db.id}\``);
+            lines.push(`- ${db.name}: \`${db.id}\` (${db.columnCount} cols, ${db.rowCount} rows)`);
           }
+
           lines.push(
             '',
             '---',
-            'Paste this block into your Claude Desktop Project Instructions so Claude knows your IDs without having to discover them each session.',
+            'Paste into Claude Desktop → Project Instructions to skip ID discovery each session.',
           );
           return createStandardResponse(true, 'Workspace map generated', { map: lines.join('\n') });
         }
