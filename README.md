@@ -33,18 +33,20 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 ### Documents
 | Tool | Description |
 |------|-------------|
+| `docs_create` | Create a document or subdocument (use nested path e.g. `"/Parent/Child"`) |
+| `docs_list` | List documents in a notebook (optionally at a sub-path) |
 | `doc_get` | Read a document's Markdown content and path by ID |
 | `doc_rename` | Rename a document by ID |
 | `doc_delete` | Send a document to the SiYuan trash. Refuses if children exist (use `cascade:true` to delete recursively). Use `dryRun:true` to preview what would be deleted without touching anything. |
 | `doc_move` | Move one or more documents to a new parent document or notebook |
+| `batch_create_docs` | Create multiple documents in one call |
+| `batch_read_all_documents` | Read the full content of all documents in a notebook (heavy — use for bulk export/indexing) |
 
-### Notebooks & Documents
+### Notebooks
 | Tool | Description |
 |------|-------------|
 | `list_notebooks` | List all notebooks |
 | `create_notebook` | Create a new notebook |
-| `batch_read_all_documents` | Read the full content of all documents in a notebook (heavy — use for bulk export/indexing) |
-| `batch_create_docs` | Create multiple documents in one call |
 
 ### Blocks
 | Tool | Description |
