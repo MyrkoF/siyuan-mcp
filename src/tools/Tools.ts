@@ -125,20 +125,6 @@ export class MergedTools {
           required: ['name']
         }
       },
-      {
-        name: 'create_subdocument',
-        description: 'Create a child document under a parent path',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            parentPath: { type: 'string', description: 'Parent path' },
-            title: { type: 'string', description: 'Title' },
-            content: { type: 'string', description: 'Content (Markdown)', default: '' }
-          },
-          required: ['notebook', 'parentPath', 'title']
-        }
-      },
 
       // ==================== 增强API工具 ====================
       {
@@ -928,12 +914,12 @@ export class MergedTools {
       // ==================== Documents ====================
       {
         name: 'docs_create',
-        description: 'Create a new document in a notebook',
+        description: 'Create a document (or subdocument) in a notebook. Use a nested path to create a subdocument, e.g. path:"/PARA/Projects/My Project". SiYuan creates intermediate levels automatically.',
         inputSchema: {
           type: 'object',
           properties: {
             notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Document path' },
+            path: { type: 'string', description: 'Document path (e.g. "/My Doc" for root, "/Parent/Child" for subdocument)' },
             title: { type: 'string', description: 'Document title' },
             content: { type: 'string', description: 'Document content (optional)' }
           },
@@ -1239,8 +1225,6 @@ export class MergedTools {
         case 'create_notebook':
           return await this.createNotebook(args.name, args.icon);
 
-        case 'create_subdocument':
-          return await this.createSubDocument(args.notebook, args.parentPath, args.title, args.content);
 
         // ==================== 增强API工具处理 ====================
         case 'batch_create_blocks':
@@ -1767,69 +1751,6 @@ export class MergedTools {
     }
   }
 
-  /**
-   * 创建子文档 - 返回标准JSON格式
-   * @param notebook - Notebook ID
-   * @param parentPath - Parent document path
-   * @param title - 子Document title
-   * @param content - 子文档内容
-   * @returns Promise<StandardResponse> - 返回创建结果的标准JSON响应
-   * @throws Error - 当创建子文档失败时抛出异常
-   */
-  private async createSubDocument(notebook: string, parentPath: string, title: string, content: string = ''): Promise<StandardResponse> {
-    try {
-      // 参数验证
-      if (!notebook || !parentPath || !title) {
-        return createStandardResponse(
-          false,
-          "Parameter validation failed",
-          { notebook, parentPath, title },
-          "Notebook ID, parent path and title are required"
-        );
-      }
-
-      // 构建子Document path
-      const subDocPath = `${parentPath}/${title}`;
-      
-      // 使用正确的API创建子文档
-      const result = await this.client.request('/api/filetree/createDocWithMd', {
-        notebook: notebook,
-        path: subDocPath,
-        markdown: content
-      });
-
-      if (result && result.code === 0 && result.data) {
-        const docId = result.data;
-        return createStandardResponse(
-          true,
-          "Child document created successfully",
-          {
-            id: docId,
-            title: title,
-            notebook: notebook,
-            parentPath: parentPath,
-            fullPath: subDocPath,
-            contentPreview: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
-            contentLength: content.length
-          }
-        );
-      } else {
-        return createStandardResponse(
-          false,
-          "Child document creation failed",
-          { title, notebook, parentPath },
-          result?.msg || 'Creation failed'
-        );
-      }
-    } catch (error: any) {
-      return createStandardResponse(
-        false,
-        "Error creating child document",
-        { title, notebook, parentPath },
-        error?.message || 'Unknown error'
-      );
-    }
-  }
 
   // ==================== Document CRUD implementations ====================
 

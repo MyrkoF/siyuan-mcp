@@ -38,14 +38,13 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 | `doc_delete` | Send a document to the SiYuan trash. Refuses if children exist (use `cascade:true` to delete recursively). Use `dryRun:true` to preview what would be deleted without touching anything. |
 | `doc_move` | Move one or more documents to a new parent document or notebook |
 
-### Notebooks & Documents (legacy)
+### Notebooks & Documents
 | Tool | Description |
 |------|-------------|
 | `list_notebooks` | List all notebooks |
 | `create_notebook` | Create a new notebook |
-| `create_document` | Create a document with Markdown content |
-| `create_subdocument` | Create a child document under a parent path |
-| `batch_read_all_documents` | Batch-read all documents in a notebook |
+| `batch_read_all_documents` | Read the full content of all documents in a notebook (heavy — use for bulk export/indexing) |
+| `batch_create_docs` | Create multiple documents in one call |
 
 ### Blocks
 | Tool | Description |
@@ -68,6 +67,7 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 | `search_by_tags` | Search by one or multiple tags |
 | `search_by_date_range` | Search by creation or modification date |
 | `recursive_search_notes` | Deep recursive search with fuzzy matching |
+| `batch_search_queries` | Run multiple search queries in one call |
 
 ### Tags
 | Tool | Description |
@@ -94,12 +94,35 @@ SiYuan's Attribute View system lets you create relational databases inside your 
 | `assets_rename` | Rename an asset |
 | `assets_ocr` | OCR text recognition on an image |
 
+### Context (multi-step task memory)
+| Tool | Description |
+|------|-------------|
+| `context_session_create` | Create an in-memory session to store data across multi-step tasks |
+| `context_session_get` | Read data from a session |
+| `context_session_update` | Update data in a session |
+| `context_reference_add` | Add a reference (block/doc ID) to a session |
+| `context_reference_list` | List all references in a session |
+| `context_merge` | Merge two sessions |
+| `context_summary` | Get a summary of a session's content |
+
+### MCP Prompts & Resources
+| Tool | Description |
+|------|-------------|
+| `prompts_list` | List all available MCP prompt templates |
+| `prompts_get` | Get a prompt template by name |
+| `prompts_validate` | Validate a prompt template |
+| `resources_discover` | Discover available MCP resources |
+| `resources_search` | Search MCP resources by keyword |
+| `resources_stats` | Get stats on MCP resource usage |
+
 ### System
 | Tool | Description |
 |------|-------------|
 | `siyuan_workspace_map` | Generate a workspace map (notebook + database IDs) ready to paste into Project Instructions |
 | `system_health` | Check SiYuan connection status |
 | `system_discover_ports` | Auto-discover the SiYuan port |
+| `system_cache_stats` | Show internal server cache statistics |
+| `system_retry_stats` | Show HTTP retry statistics |
 
 ---
 
