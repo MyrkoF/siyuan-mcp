@@ -302,23 +302,28 @@ When `SIYUAN_API_URL` is not set, the server automatically scans ports 6806, 680
 
 ## How Attribute View writes work
 
-SiYuan uses two separate storage systems:
+SiYuan uses two separate storage layers for Attribute View databases:
 
-| Storage | Contains | Access |
-|---------|----------|--------|
-| SQLite (`blocks.db`) | Documents, blocks, text content | HTTP API |
-| JSON files (`/data/storage/av/*.json`) | Database fields, entries, cell values | HTTP API (`/api/file/getFile` + `/api/file/putFile`) |
+| Layer | Contains | Updated by |
+|-------|----------|------------|
+| Kernel in-memory model | Live database state | SiYuan's own APIs (`/api/av/…`) |
+| JSON files (`/data/storage/av/*.json`) | Persisted database state | SiYuan (sync from kernel), or `/api/file/putFile` |
 
-### Why `av_create_database` and `av_create_entry` use file API calls
+> **Key rule:** writing directly to the JSON file via `putFile` does **not** update SiYuan's kernel model. The GUI reads from the kernel, so file-only writes are invisible to the user and get overwritten during the next normalization pass. All entry and field operations must go through SiYuan's official API endpoints.
 
-SiYuan's high-level HTTP API is incomplete for Attribute View **write** operations:
+### API endpoints used per operation
 
-- **No API to create a database** — no endpoint creates a new `.json` AV file
-- **No API to add entries with values at creation time** — `appendAttributeViewDetachedBlocksWithValues` returns `code: 0` but silently fails to persist entries (observed in SiYuan 3.5.7)
+| Operation | API endpoint |
+|-----------|-------------|
+| Create entry / bulk create | `/api/av/appendAttributeViewDetachedBlocksWithValues` |
+| Update entries | `/api/av/batchSetAttributeViewBlockAttrs` |
+| Delete entries | `/api/av/removeAttributeViewBlocks` |
+| Add field | `/api/av/addAttributeViewKey` |
+| Delete field | `/api/av/removeAttributeViewKey` |
+| Read database | `/api/av/renderAttributeView` |
+| **Create database** | `/api/file/putFile` + `createDocWithMd` + `insertBlock` (no HTTP API exists for DB creation) |
 
-As a result, `av_create_database` and `av_create_entry` construct the AV JSON directly and write it via SiYuan's `/api/file/putFile` endpoint. Reading uses `/api/file/getFile`. This is pure HTTP — no local filesystem access required.
-
-**All other operations** (`av_render_database`, `av_query_database`, `av_list_databases`, `av_update_entry`, `av_delete_entry`) use the standard `/api/av/` endpoints normally.
+`av_create_database` is the only operation that still writes to the JSON file directly — because SiYuan has no endpoint for creating a new AV database. All other operations use the standard `/api/av/` endpoints. Everything is pure HTTP — no local filesystem access or `SIYUAN_WORKSPACE_PATH` required.
 
 ---
 
@@ -351,8 +356,6 @@ av_create_entry(
 )
 → the new entry with its ID and all cell values
 ```
-
-> **Note:** `av_create_entry` uses SiYuan's `/api/file/getFile` + `/api/file/putFile` HTTP endpoints to read and write the AV JSON. No local filesystem access is required — works with remote SiYuan instances.
 
 #### Update multiple cells in one call
 ```
@@ -422,20 +425,20 @@ av_list_fields(avId: "20251215105701-op0w1p9")
 av_create_field(
   avId: "20251215105701-op0w1p9",
   name: "Priority",
-  type: "select",
-  options: [{ name: "High" }, { name: "Medium" }, { name: "Low" }]
+  type: "select"
 )
-→ { id, name: "Priority", type: "select", options: [...] }
+→ { id, name: "Priority", type: "select" }
 ```
 System types (`relation`, `rollup`, `created`, `updated`, `lineNumber`, `template`) are rejected.
+Select/mSelect options are auto-created when entry values are set via `av_update_entry` or `av_bulk_update_entries` — no need to define them upfront.
 
-#### Rename a field or update its options
+#### Rename a field
 ```
-# Rename
+# Renaming is not supported via SiYuan's public API.
+# av_update_field returns a clear error directing to the GUI:
 av_update_field(avId: "...", fieldId: "col-id", changes: { name: "State" })
-
-# Update select options (replaces existing options)
-av_update_field(avId: "...", fieldId: "col-id", changes: { options: [{ name: "Todo" }, { name: "Done" }] })
+→ error: "Renaming fields is not supported via SiYuan's public API.
+          To rename field 'Priority', use SiYuan's GUI: click the column header → rename."
 ```
 
 #### Delete a field
@@ -557,7 +560,7 @@ The original project provided the foundational MCP server structure for SiYuan (
 - **Batch cell update** — update multiple database cells in a single API call
 - **Full field type coverage** — all 16 SiYuan field types parsed; 11 writable + 5 system/computed
 - **Workspace Map** — `siyuan_workspace_map` generates a ready-to-paste ID reference for Claude Desktop Project Instructions
-- **Universal deployment** — all operations use the HTTP API (`/api/file/putFile` + `/api/file/getFile`); no local filesystem access or `SIYUAN_WORKSPACE_PATH` required; works with remote SiYuan instances
+- **Universal deployment** — all operations use SiYuan's HTTP API; no local filesystem access or `SIYUAN_WORKSPACE_PATH` required; works with remote SiYuan instances
 - Auto-discovery of SiYuan port
 - Unified environment variable handling (`SIYUAN_API_TOKEN`, `SIYUAN_API_URL`)
 

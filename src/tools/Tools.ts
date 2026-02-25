@@ -677,7 +677,7 @@ export class MergedTools {
             },
             fields: {
               type: 'array',
-              description: 'Optional additional fields (primary "Name" field is always created automatically)',
+              description: 'Optional additional fields. Do NOT include "block" — the primary Name field is always auto-created.',
               items: {
                 type: 'object',
                 properties: {
@@ -685,7 +685,7 @@ export class MergedTools {
                   type: {
                     type: 'string',
                     enum: ['text','number','select','mSelect','date','checkbox','url','email','phone','mAsset','created','updated','lineNumber','template','rollup','relation'],
-                    description: 'Field type'
+                    description: 'Field type. Do NOT use "block" (auto-created primary key).'
                   }
                 },
                 required: ['name', 'type']
@@ -795,7 +795,7 @@ export class MergedTools {
       },
       {
         name: 'av_create_field',
-        description: 'Add a new field to a database. Supported types: text, number, checkbox, select, mSelect, date, url, email, phone, mAsset. System types (relation, rollup, created, updated, lineNumber, template) are rejected.',
+        description: 'Add a new field to a database via SiYuan\'s official API. Supported types: text, number, checkbox, select, mSelect, date, url, email, phone, mAsset. Note: select/mSelect fields are created without initial options — options are auto-created when entry values are set.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -805,9 +805,6 @@ export class MergedTools {
               type: 'string',
               enum: ['text','number','checkbox','select','mSelect','date','url','email','phone','mAsset'],
               description: 'Field type'
-            },
-            options: {
-              description: 'For select/mSelect: [{name, color}]. For date: {format?, autoFill?}. For number: {format?}.'
             }
           },
           required: ['avId', 'name', 'type']
@@ -815,7 +812,7 @@ export class MergedTools {
       },
       {
         name: 'av_update_field',
-        description: 'Update a field\'s name or options. Get fieldId from av_list_fields or av_render_database.',
+        description: 'NOTE: SiYuan\'s public API does not support renaming fields. This tool will return an informative error. To rename, use SiYuan\'s GUI (click column header). To replace a field, use av_delete_field then av_create_field.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -823,21 +820,9 @@ export class MergedTools {
             fieldId: { type: 'string', description: 'Field ID (from av_list_fields or av_render_database)' },
             changes: {
               type: 'object',
-              description: 'Changes to apply',
+              description: 'Changes to apply (name change will return a clear error explaining the limitation)',
               properties: {
-                name: { type: 'string', description: 'New field name (optional)' },
-                options: {
-                  type: 'array',
-                  description: 'For select/mSelect: new option list [{name, color}] — replaces existing',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      name: { type: 'string' },
-                      color: { type: 'string', description: 'e.g. default, red, orange, yellow, green, blue' }
-                    },
-                    required: ['name']
-                  }
-                }
+                name: { type: 'string', description: 'New field name — NOT supported via API, will return error' }
               }
             }
           },
@@ -1372,7 +1357,7 @@ export class MergedTools {
           return await this.handleAvListFields(args.avId);
 
         case 'av_create_field':
-          return await this.handleAvCreateField(args.avId, args.name, args.type, args.options);
+          return await this.handleAvCreateField(args.avId, args.name, args.type);
 
         case 'av_update_field':
           return await this.handleAvUpdateField(args.avId, args.fieldId, args.changes ?? {});
@@ -1947,7 +1932,7 @@ export class MergedTools {
       if (!avId) {
         return createStandardResponse(false, 'Missing parameter', null, 'avId is required');
       }
-      const newEntry = await this.avService.createRow(avId, name ?? '', values ?? []);
+      const newEntry = await this.avService.createEntry(avId, name ?? '', values ?? []);
       if (!newEntry) {
         return createStandardResponse(
           false,
@@ -2076,7 +2061,7 @@ export class MergedTools {
       return createStandardResponse(
         true,
         `${created.length} entry/entries created`,
-        { avId, entries: created, count: created.length }
+        { avId, entries: created, createdCount: created.length }
       );
     } catch (error: any) {
       return createStandardResponse(false, 'Error creating entries', null, error?.message);
@@ -2111,12 +2096,12 @@ export class MergedTools {
     }
   }
 
-  private async handleAvCreateField(avId: string, name: string, type: string, options?: any): Promise<StandardResponse> {
+  private async handleAvCreateField(avId: string, name: string, type: string): Promise<StandardResponse> {
     try {
       if (!avId || !name || !type) {
         return createStandardResponse(false, 'Missing parameters', null, 'avId, name and type are required');
       }
-      const field = await this.avService.createField(avId, name, type, options);
+      const field = await this.avService.createField(avId, name, type);
       return createStandardResponse(true, `Field "${field.name}" (${field.type}) created (ID: ${field.id})`, field);
     } catch (error: any) {
       return createStandardResponse(false, 'Error creating field', null, error?.message);

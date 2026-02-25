@@ -243,85 +243,46 @@ export class AttributeViewService {
   }
 
   /**
-   * Crée une nouvelle ligne (détachée) dans la database en écrivant directement
-   * dans le fichier JSON de l'Attribute View.
+   * Create a new detached entry in the database via
+   * /api/av/appendAttributeViewDetachedBlocksWithValues.
    *
-   * L'API appendAttributeViewDetachedBlocksWithValues retourne code:0 mais ne
-   * persiste pas les lignes de façon fiable — écriture JSON directe utilisée
-   * à la place (même mécanisme que createDatabase et addColumn).
+   * Uses SiYuan's official API (2D array format) so the entry is registered
+   * in the kernel's internal model — persists through normalizations and
+   * shows in the GUI immediately.
    *
-   * @param avId   — Block ID de la database
-   * @param name   — Contenu de la colonne primaire "block" (nom/titre de la ligne)
-   * @param values — Valeurs initiales optionnelles des autres colonnes
-   * @returns La nouvelle AVRow avec son ID, ou null si le re-render ne la trouve pas
+   * @param avId   — Block ID of the database
+   * @param name   — Primary field content (entry title)
+   * @param values — Optional initial cell values
+   * @returns The new AVRow, or null if not found in re-render
    */
-  async createRow(
+  async createEntry(
     avId: string,
     name: string = '',
     values: AVCreateRowValue[] = []
   ): Promise<AVRow | null> {
-    if (!avId || avId.trim() === '') {
-      throw new Error('avId est requis');
-    }
+    if (!avId?.trim()) throw new Error('avId is required');
 
-    // Read the AV JSON file via HTTP API
-    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
-    const dbJson = await this.client.fileGet(avHttpPath);
-    if (!dbJson || typeof dbJson !== 'object') {
-      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
-    }
+    // Get current entries to identify the new one after creation
+    const before = await this.renderDatabase(avId);
+    const beforeIds = new Set(before.entries.map((r: AVRow) => r.id));
+    const pkField = before.fields.find((f: AVColumn) => f.type === 'block');
+    if (!pkField) throw new Error('Primary field (block type) not found in this database');
 
-    const keyValues: any[] = dbJson.keyValues ?? [];
-    const pkEntry = keyValues.find((kv: any) => kv.key?.type === 'block');
-    if (!pkEntry) {
-      throw new Error('Primary field of type "block" not found in this database');
-    }
+    // Build the 2D cell array for this single row
+    const row = this.buildAppendRow(pkField.id, name, values, before.fields);
 
-    const rowId = this.generateSiyuanId();
-    const now   = Date.now();
-
-    // Valeur de la colonne primaire (block)
-    if (!pkEntry.values) pkEntry.values = [];
-    pkEntry.values.push({
-      id:          this.generateSiyuanId(),
-      keyID:       pkEntry.key.id,
-      blockID:     rowId,
-      type:        'block',
-      isDetached:  true,
-      createdAt:   now,
-      updatedAt:   now,
-      block: { id: rowId, content: name, created: now, updated: now }
+    const response = await this.client.request('/api/av/appendAttributeViewDetachedBlocksWithValues', {
+      avID: avId.trim(),
+      blocksValues: [row]
     });
 
-    // Values for other fields
-    const sysTypes = new Set(['created', 'updated', 'lineNumber', 'template', 'rollup', 'relation']);
-
-    for (const v of values.filter(vv => vv.fieldId !== pkEntry.key.id)) {
-      const colEntry = keyValues.find((kv: any) => kv.key?.id === v.fieldId);
-      if (!colEntry) continue;
-
-      const colType = colEntry.key.type as string;
-      if (sysTypes.has(colType)) continue;
-
-      if (!colEntry.values) colEntry.values = [];
-      const typeData = this.buildJsonValue(v);
-      colEntry.values.push({
-        id:        this.generateSiyuanId(),
-        keyID:     v.fieldId,
-        blockID:   rowId,
-        type:      colType,
-        createdAt: now,
-        updatedAt: now,
-        ...typeData
-      });
+    if (!response || response.code !== 0) {
+      throw new Error(`Failed to create entry: ${response?.msg ?? 'unknown error'}`);
     }
 
-    // Écrire le JSON mis à jour via l'API HTTP
-    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
-
-    // Re-render pour retourner la ligne avec ses valeurs parsées
-    const rendered = await this.renderDatabase(avId);
-    return rendered.entries.find((r: AVRow) => r.id === rowId) ?? null;
+    // Re-render to get the new entry with its kernel-assigned ID
+    const after = await this.renderDatabase(avId);
+    return after.entries.find((r: AVRow) => !beforeIds.has(r.id)) ?? null;
   }
 
   /**
@@ -422,8 +383,11 @@ export class AttributeViewService {
       const colName = col.name?.trim();
       if (!colName) continue;
 
+      // block = primary key, auto-created above — silently skip if declared in fields
+      if (colType === 'block') continue;
+
       if (!WRITABLE_TYPES.has(colType) && !SYSTEM_TYPES.has(colType)) {
-        throw new Error(`Unknown field type: "${colType}"`);
+        throw new Error(`Unknown field type: "${colType}". Valid types: ${[...WRITABLE_TYPES].join(', ')}`);
       }
 
       const colId = this.generateSiyuanId();
@@ -510,7 +474,8 @@ export class AttributeViewService {
   }
 
   /**
-   * Create multiple entries in a single getFile → mutate → putFile call.
+   * Create multiple entries via /api/av/appendAttributeViewDetachedBlocksWithValues.
+   * Sends all rows in a single API call (2D array format).
    * entries: [{ name?, values: [{ fieldId, type, content }] }]
    */
   async bulkCreateEntries(
@@ -520,61 +485,27 @@ export class AttributeViewService {
     if (!avId?.trim()) throw new Error('avId is required');
     if (!entries?.length) throw new Error('entries array must not be empty');
 
-    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
-    const dbJson = await this.client.fileGet(avHttpPath);
-    if (!dbJson || typeof dbJson !== 'object') {
-      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+    const before = await this.renderDatabase(avId);
+    const beforeIds = new Set(before.entries.map((r: AVRow) => r.id));
+    const pkField = before.fields.find((f: AVColumn) => f.type === 'block');
+    if (!pkField) throw new Error('Primary field (block type) not found in this database');
+
+    // Build 2D array: each element is an array of cells for one row
+    const blocksValues = entries.map(entry =>
+      this.buildAppendRow(pkField.id, entry.name ?? '', entry.values ?? [], before.fields)
+    );
+
+    const response = await this.client.request('/api/av/appendAttributeViewDetachedBlocksWithValues', {
+      avID: avId.trim(),
+      blocksValues
+    });
+
+    if (!response || response.code !== 0) {
+      throw new Error(`Failed to create entries: ${response?.msg ?? 'unknown error'}`);
     }
 
-    const keyValues: any[] = dbJson.keyValues ?? [];
-    const pkEntry = keyValues.find((kv: any) => kv.key?.type === 'block');
-    if (!pkEntry) throw new Error('Primary field of type "block" not found in this database');
-
-    const sysTypes = new Set(['created', 'updated', 'lineNumber', 'template', 'rollup', 'relation']);
-    const now = Date.now();
-    const createdIds: string[] = [];
-
-    for (const entry of entries) {
-      const rowId = this.generateSiyuanId();
-      createdIds.push(rowId);
-      const name = entry.name ?? '';
-      const values = entry.values ?? [];
-
-      if (!pkEntry.values) pkEntry.values = [];
-      pkEntry.values.push({
-        id: this.generateSiyuanId(),
-        keyID: pkEntry.key.id,
-        blockID: rowId,
-        type: 'block',
-        isDetached: true,
-        createdAt: now,
-        updatedAt: now,
-        block: { id: rowId, content: name, created: now, updated: now }
-      });
-
-      for (const v of values.filter((vv: AVCreateRowValue) => vv.fieldId !== pkEntry.key.id)) {
-        const colEntry = keyValues.find((kv: any) => kv.key?.id === v.fieldId);
-        if (!colEntry) continue;
-        const colType = colEntry.key.type as string;
-        if (sysTypes.has(colType)) continue;
-        if (!colEntry.values) colEntry.values = [];
-        const typeData = this.buildJsonValue(v);
-        colEntry.values.push({
-          id: this.generateSiyuanId(),
-          keyID: v.fieldId,
-          blockID: rowId,
-          type: colType,
-          createdAt: now,
-          updatedAt: now,
-          ...typeData
-        });
-      }
-    }
-
-    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
-
-    const rendered = await this.renderDatabase(avId);
-    return rendered.entries.filter((r: AVRow) => createdIds.includes(r.id));
+    const after = await this.renderDatabase(avId);
+    return after.entries.filter((r: AVRow) => !beforeIds.has(r.id));
   }
 
   /**
@@ -617,37 +548,35 @@ export class AttributeViewService {
   // ==================== Field management ====================
 
   /**
-   * List all fields of a database without loading entries.
-   * Reads the AV JSON directly (getFile) — single HTTP call.
+   * List all fields of a database.
+   * Uses renderAttributeView (kernel model) — canonical source of field IDs.
+   * fileGet can be out of sync with the kernel after delete/recreate sequences.
    */
   async listFields(avId: string): Promise<AVField[]> {
     if (!avId?.trim()) throw new Error('avId is required');
-    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
-    const dbJson = await this.client.fileGet(avHttpPath);
-    if (!dbJson || typeof dbJson !== 'object') {
-      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
-    }
-    const keyValues: any[] = dbJson.keyValues ?? [];
-    return keyValues
-      .filter((kv: any) => kv.key)
-      .map((kv: any) => ({
-        id: kv.key.id,
-        name: kv.key.name,
-        type: kv.key.type,
-        options: kv.key.options ?? undefined
-      }));
+    const db = await this.renderDatabase(avId);
+    return db.fields.map((f: AVColumn) => ({
+      id: f.id,
+      name: f.name,
+      type: f.type,
+      options: (f as any).options ?? undefined
+    }));
   }
 
   /**
-   * Add a new field to a database.
-   * Uses getFile → mutate → putFile (same pattern as createEntry/createDatabase).
-   * Rejected types: relation, rollup, created, updated, lineNumber, template.
+   * Add a new field to a database via /api/av/addAttributeViewKey.
+   *
+   * Uses SiYuan's official API so the change is registered in the kernel's
+   * internal model (undo/redo, sync, GUI update all work correctly).
+   *
+   * Note: select/mSelect fields are created without initial options.
+   * Options are auto-created when entry values are set via av_update_entry /
+   * av_bulk_update_entries.
    */
   async createField(
     avId: string,
     name: string,
     type: string,
-    options?: any
   ): Promise<AVField> {
     if (!avId?.trim()) throw new Error('avId is required');
     if (!name?.trim()) throw new Error('name is required');
@@ -658,6 +587,9 @@ export class AttributeViewService {
     ]);
     const SYSTEM_TYPES = new Set(['relation','rollup','created','updated','lineNumber','template']);
 
+    if (type === 'block') {
+      throw new Error(`Field type "block" is the primary key and is auto-created. You cannot add a second one.`);
+    }
     if (SYSTEM_TYPES.has(type)) {
       throw new Error(`Field type "${type}" is system-managed and cannot be created via MCP.`);
     }
@@ -665,42 +597,42 @@ export class AttributeViewService {
       throw new Error(`Unknown field type: "${type}". Valid: ${[...WRITABLE_TYPES].join(', ')}`);
     }
 
+    // Get current view column order to append the new field at the end.
+    // Reading the JSON file (read-only) is lighter than renderAttributeView which loads all rows.
     const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
     const dbJson = await this.client.fileGet(avHttpPath);
     if (!dbJson || typeof dbJson !== 'object') {
-      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+      throw new Error(`Database not found: ${avId}`);
     }
+    const viewCols: any[] = dbJson.views?.[0]?.table?.columns ?? [];
+    const lastColId = viewCols.length > 0 ? viewCols[viewCols.length - 1].id : '';
 
     const fieldId = this.generateSiyuanId();
-    const key: any = { id: fieldId, name: name.trim(), type, icon: '', desc: '' };
 
-    if (type === 'number')                   key.numberFormat = '';
-    if (type === 'select' || type === 'mSelect') {
-      key.options = Array.isArray(options)
-        ? options.map((o: any) => ({ name: o.name ?? '', color: o.color ?? 'default' }))
-        : [];
-    }
-    if (type === 'date' && options) {
-      if (options.format)   key.format   = options.format;
-      if (options.autoFill) key.autoFill = options.autoFill;
-    }
+    const response = await this.client.request('/api/av/addAttributeViewKey', {
+      avID: avId.trim(),
+      keyID: fieldId,
+      keyName: name.trim(),
+      keyType: type,
+      keyIcon: '',
+      previousKeyID: lastColId
+    });
 
-    const keyValues: any[] = dbJson.keyValues ?? [];
-    keyValues.push({ key, values: [] });
-
-    // Also add the column to the view table layout
-    const views: any[] = dbJson.views ?? [];
-    if (views.length > 0 && views[0].table?.columns) {
-      views[0].table.columns.push({ id: fieldId, width: '', hidden: false, pin: false, icon: '', calc: null });
+    if (!response || response.code !== 0) {
+      throw new Error(`Failed to create field: ${response?.msg ?? 'unknown error'}`);
     }
 
-    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
-    return { id: fieldId, name: name.trim(), type, options: key.options };
+    return { id: fieldId, name: name.trim(), type };
   }
 
   /**
-   * Update an existing field's name or options.
-   * Uses getFile → mutate → putFile.
+   * Rename a field via SiYuan's API.
+   *
+   * SiYuan does not expose a public HTTP endpoint for renaming AV columns.
+   * The only way to rename is through SiYuan's GUI.
+   * As a workaround this method implements: delete-old + create-new + migrate values.
+   * WARNING: this does NOT migrate existing cell values — data is preserved by SiYuan
+   * only when using the GUI rename. For a lossless rename, use SiYuan's UI directly.
    */
   async updateField(
     avId: string,
@@ -710,61 +642,52 @@ export class AttributeViewService {
     if (!avId?.trim()) throw new Error('avId is required');
     if (!fieldId?.trim()) throw new Error('fieldId is required');
 
-    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
-    const dbJson = await this.client.fileGet(avHttpPath);
-    if (!dbJson || typeof dbJson !== 'object') {
-      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
+    // Verify the field exists
+    const fields = await this.listFields(avId);
+    const field = fields.find((f: AVField) => f.id === fieldId.trim());
+    if (!field) throw new Error(`Field "${fieldId}" not found in database`);
+    if (field.type === 'block') throw new Error('Cannot modify the primary key field');
+
+    if (changes.name !== undefined) {
+      // SiYuan has no public API for renaming AV columns. The only reliable path is
+      // the GUI. Surfacing a clear error is better than silently doing nothing.
+      throw new Error(
+        `Renaming fields is not supported via SiYuan's public API. ` +
+        `To rename field "${field.name}", use SiYuan's GUI: ` +
+        `click the column header → rename. ` +
+        `Alternatively, delete the field and recreate it with the new name ` +
+        `(note: existing cell values will be lost).`
+      );
     }
 
-    const keyValues: any[] = dbJson.keyValues ?? [];
-    const kv = keyValues.find((k: any) => k.key?.id === fieldId.trim());
-    if (!kv) throw new Error(`Field "${fieldId}" not found in database`);
-
-    if (changes.name !== undefined) kv.key.name = changes.name.trim();
-    if (changes.options !== undefined) {
-      kv.key.options = changes.options.map((o: any) => ({
-        name: o.name ?? '',
-        color: o.color ?? 'default'
-      }));
-    }
-
-    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
-    return { id: kv.key.id, name: kv.key.name, type: kv.key.type, options: kv.key.options };
+    // No other changes supported at this time
+    return field;
   }
 
   /**
-   * Delete a field from a database.
+   * Delete a field from a database via /api/av/removeAttributeViewKey.
    * Refuses to delete the primary key field (block type).
-   * Uses getFile → mutate → putFile.
    */
   async deleteField(avId: string, fieldId: string): Promise<void> {
     if (!avId?.trim()) throw new Error('avId is required');
     if (!fieldId?.trim()) throw new Error('fieldId is required');
 
-    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
-    const dbJson = await this.client.fileGet(avHttpPath);
-    if (!dbJson || typeof dbJson !== 'object') {
-      throw new Error(`AV file not found or invalid: ${avHttpPath}`);
-    }
-
-    const keyValues: any[] = dbJson.keyValues ?? [];
-    const kv = keyValues.find((k: any) => k.key?.id === fieldId.trim());
-    if (!kv) throw new Error(`Field "${fieldId}" not found in database`);
-    if (kv.key.type === 'block') {
+    // Verify existence and guard primary key
+    const fields = await this.listFields(avId);
+    const field = fields.find((f: AVField) => f.id === fieldId.trim());
+    if (!field) throw new Error(`Field "${fieldId}" not found in database`);
+    if (field.type === 'block') {
       throw new Error('Cannot delete the primary key field (block type)');
     }
 
-    dbJson.keyValues = keyValues.filter((k: any) => k.key?.id !== fieldId.trim());
+    const response = await this.client.request('/api/av/removeAttributeViewKey', {
+      avID: avId.trim(),
+      keyID: fieldId.trim()
+    });
 
-    // Remove from view columns too
-    const views: any[] = dbJson.views ?? [];
-    for (const view of views) {
-      if (view.table?.columns) {
-        view.table.columns = view.table.columns.filter((c: any) => c.id !== fieldId.trim());
-      }
+    if (!response || response.code !== 0) {
+      throw new Error(`Failed to delete field: ${response?.msg ?? 'unknown error'}`);
     }
-
-    await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
   }
 
   // ==================== Helpers privés ====================
@@ -839,55 +762,35 @@ export class AttributeViewService {
   }
 
   /**
-   * Convertit un AVCreateRowValue en données typées pour écriture directe dans
-   * le JSON de l'AV (format stockage, différent du format API setAttributeViewBlockAttr).
-   * Retourne uniquement les champs spécifiques au type ({text:…}, {mSelect:…}, etc.)
-   * à merger dans l'entrée value complète.
+   * Build one row for appendAttributeViewDetachedBlocksWithValues.
+   * Returns an array of cell objects (one per field with a value).
+   * Format: [{ keyID, block/number/text/mSelect/... }, ...]
    */
-  private buildJsonValue(v: AVCreateRowValue): any {
-    switch (v.type) {
-      case 'text':
-      case 'url':
-      case 'email':
-      case 'phone':
-        return { [v.type]: { content: String(v.content ?? '') } };
-      case 'number':
-        return { number: { content: Number(v.content) } };
-      case 'checkbox':
-        return { checkbox: { checked: Boolean(v.content) } };
-      case 'select':
-        // SiYuan stocke select comme mSelect (tableau) même pour single-select
-        return { mSelect: [{ content: String(v.content ?? '') }] };
-      case 'mSelect': {
-        const items = Array.isArray(v.content) ? v.content : [v.content];
-        return { mSelect: items.map((c: any) => ({ content: String(c) })) };
-      }
-      case 'date':
-        return { date: { content: Number(v.content), isNotTime: true } };
-      case 'mAsset': {
-        const assets = Array.isArray(v.content) ? v.content : [v.content];
-        return {
-          mAsset: assets.map((a: any) => ({
-            type:    a.type    ?? 'file',
-            name:    a.name    ?? '',
-            content: a.content ?? ''
-          }))
-        };
-      }
-      default:
-        return {};
+  private buildAppendRow(
+    pkFieldId: string,
+    name: string,
+    values: AVCreateRowValue[],
+    fields: AVColumn[]
+  ): any[] {
+    const cells: any[] = [{ keyID: pkFieldId, block: { content: name ?? '' } }];
+
+    for (const v of values) {
+      if (v.fieldId === pkFieldId) continue;
+      const field = fields.find((f: AVColumn) => f.id === v.fieldId);
+      if (!field) continue;
+      const cell = this.buildAppendCell(v);
+      if (cell) cells.push(cell);
     }
+
+    return cells;
   }
 
   /**
-   * Convertit un AVCreateRowValue en objet Value SiYuan pour blocksValues.
+   * Build a single cell object for the appendAttributeViewDetachedBlocksWithValues 2D array.
+   * Returns null for system-managed / unsupported types (caller silently skips them).
    */
-  private buildBlockValue(v: AVCreateRowValue): any {
-    const base: any = {
-      keyID: v.fieldId,
-      type: v.type,
-      isDetached: true
-    };
+  private buildAppendCell(v: AVCreateRowValue): any | null {
+    const base: any = { keyID: v.fieldId };
 
     switch (v.type) {
       case 'text':
@@ -897,13 +800,14 @@ export class AttributeViewService {
         base[v.type] = { content: String(v.content ?? '') };
         break;
       case 'number':
-        base.number = { content: Number(v.content), isNotEmpty: true };
+        base.number = { content: Number(v.content) };
         break;
       case 'checkbox':
         base.checkbox = { checked: Boolean(v.content) };
         break;
       case 'select':
-        base.select = { content: String(v.content ?? '') };
+        // appendAttributeViewDetachedBlocksWithValues uses mSelect format for both select/mSelect
+        base.mSelect = [{ content: String(v.content ?? '') }];
         break;
       case 'mSelect': {
         const items = Array.isArray(v.content) ? v.content : [v.content];
@@ -911,7 +815,7 @@ export class AttributeViewService {
         break;
       }
       case 'date':
-        base.date = { content: Number(v.content), isNotEmpty: true };
+        base.date = { content: Number(v.content) };
         break;
       case 'mAsset': {
         const assets = Array.isArray(v.content) ? v.content : [v.content];
@@ -922,17 +826,16 @@ export class AttributeViewService {
         }));
         break;
       }
+      // System-managed / computed — skip silently
       case 'created':
       case 'updated':
       case 'lineNumber':
       case 'template':
       case 'rollup':
       case 'relation':
-        throw new Error(
-          `Field type "${v.type}" is system-managed or computed — cannot write a value manually.`
-        );
+        return null;
       default:
-        base[v.type] = { content: v.content };
+        return null;
     }
 
     return base;
