@@ -204,8 +204,8 @@ async function handleUpdateDocument(args: any): Promise<StandardResponse> {
   if (!args.id?.trim()) {
     return createStandardResponse(false, 'Document ID required', null, 'id parameter is missing');
   }
-  if (!args.title && !args.content) {
-    return createStandardResponse(false, 'Nothing to update', null, 'Provide title and/or content');
+  if (!args.title && !args.content && !args.parentId) {
+    return createStandardResponse(false, 'Nothing to update', null, 'Provide title, content, and/or parentId');
   }
 
   const results: any = { id: args.id };
@@ -218,6 +218,11 @@ async function handleUpdateDocument(args: any): Promise<StandardResponse> {
   if (args.content !== undefined) {
     await client.blocks.updateBlock(args.id, args.content);
     results.contentUpdated = true;
+  }
+
+  if (args.parentId?.trim()) {
+    await docService.moveDocuments([args.id], args.parentId.trim());
+    results.movedTo = args.parentId.trim();
   }
 
   return createStandardResponse(true, 'Document updated', results);

@@ -70,6 +70,7 @@ export interface AVCreateDatabaseResult {
   docId: string;
   name: string;
   notebookId: string;
+  embeddedInParent: boolean;
 }
 
 // ==================== Service ====================
@@ -432,7 +433,26 @@ export class AttributeViewService {
     const avHttpPath = `/data/storage/av/${avId}.json`;
     await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
 
-    // Créer le document dans le notebook (at root first)
+    const avBlockHtml = `<div data-type="NodeAttributeView" data-av-id="${avId}" data-av-type="table"></div>`;
+
+    if (parentDocId?.trim()) {
+      // EMBED mode: insert the AV block directly into the parent document
+      // No separate home doc created — matches SiYuan GUI behavior (/database command)
+      const embedResp = await this.client.request('/api/block/insertBlock', {
+        dataType: 'markdown',
+        data: avBlockHtml,
+        parentID: parentDocId.trim()
+      });
+
+      if (!embedResp || embedResp.code !== 0) {
+        try { await this.client.request('/api/file/removeFile', { path: avHttpPath }); } catch {}
+        throw new Error(`AV block insertion into parent doc failed: ${embedResp?.msg ?? 'unknown error'}`);
+      }
+
+      return { avId, docId: parentDocId.trim(), name: dbName, notebookId: notebookId.trim(), embeddedInParent: true };
+    }
+
+    // STANDALONE mode: create a dedicated doc at notebook root
     const docResp = await this.client.request('/api/filetree/createDocWithMd', {
       notebook: notebookId.trim(),
       path: `/${dbName}`,
@@ -440,29 +460,15 @@ export class AttributeViewService {
     });
 
     if (!docResp || docResp.code !== 0) {
-      // Nettoyer le fichier créé si la création doc échoue
       try { await this.client.request('/api/file/removeFile', { path: avHttpPath }); } catch {}
       throw new Error(`Document creation failed: ${docResp?.msg ?? 'unknown error'}`);
     }
 
     const docId: string = docResp.data;
 
-    // Move under parent document if parentDocId is specified
-    if (parentDocId?.trim()) {
-      const moveResp = await this.client.request('/api/filetree/moveDocsByID', {
-        fromIDs: [docId],
-        toID: parentDocId.trim()
-      });
-      if (!moveResp || moveResp.code !== 0) {
-        // Non-fatal: DB is created but at root instead of under parent
-        // Log but don't throw — the DB is still usable
-      }
-    }
-
-    // Insérer le bloc AV dans le document
     const blockResp = await this.client.request('/api/block/insertBlock', {
       dataType: 'markdown',
-      data: `<div data-type="NodeAttributeView" data-av-id="${avId}" data-av-type="table"></div>`,
+      data: avBlockHtml,
       parentID: docId
     });
 
@@ -470,7 +476,7 @@ export class AttributeViewService {
       throw new Error(`AV block insertion failed: ${blockResp?.msg ?? 'unknown error'}`);
     }
 
-    return { avId, docId, name: dbName, notebookId: notebookId.trim() };
+    return { avId, docId, name: dbName, notebookId: notebookId.trim(), embeddedInParent: false };
   }
 
   // ==================== Entry management ====================

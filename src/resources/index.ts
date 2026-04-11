@@ -183,7 +183,7 @@ Create database entry:
     values: [{fieldId:"xxx", type:"select", content:"Active"}]
   }])
 
-Create database under an existing document:
+Create database INSIDE an existing document (embedded in the page content):
   create_document(notebook, path, title)             → returns doc block ID
   create_database(notebookId, name:"My DB",
     parentDocId: "<doc block ID from step above>",
@@ -193,9 +193,15 @@ Create database under an existing document:
       {name:"Due", type:"date"},
       {name:"Done", type:"checkbox"}
   ])
-  IMPORTANT: Always pass parentDocId when the DB should live under a specific document.
-  Without parentDocId the DB page is created at notebook root (orphaned).
+  → The database TABLE appears as content inside the parent document page.
+  IMPORTANT: Always pass parentDocId when the user says "create a DB in this page".
+  Without parentDocId the DB is a standalone page at notebook root.
   Note: primary Name field is auto-created. Do NOT include "block" in fields.
+
+Move documents to a new parent:
+  update_document(id: "docId", parentId: "targetParentDocId")
+  → moves doc under target parent. Use notebook ID as parentId to move to root.
+  Can combine with rename: update_document(id, title:"New Name", parentId:"targetId")
 
 ---
 

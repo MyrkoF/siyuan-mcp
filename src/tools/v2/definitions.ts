@@ -100,7 +100,7 @@ export const TOOLS: Tool[] = [
     description:
       'Create a document (or subdocument) in a notebook. ' +
       'Use nested path for subdocuments: path:"/Parent/Child". ' +
-      'Returns the document block ID — use it as parentDocId in create_database to nest a DB under this doc.',
+      'Returns the document block ID — use it as parentDocId in create_database to embed a DB inside this doc.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -115,14 +115,15 @@ export const TOOLS: Tool[] = [
   {
     name: 'update_document',
     description:
-      'Rename and/or replace document content. ' +
-      'Provide title to rename, content to replace body, or both.',
+      'Rename, replace content, and/or move a document. ' +
+      'Provide title to rename, content to replace body, parentId to move under another doc.',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Document block ID' },
         title: { type: 'string', description: 'New title (rename)' },
-        content: { type: 'string', description: 'New markdown content (replaces entire body)' }
+        content: { type: 'string', description: 'New markdown content (replaces entire body)' },
+        parentId: { type: 'string', description: 'Move doc under this parent document ID (or notebook ID to move to root)' }
       },
       required: ['id']
     }
@@ -203,16 +204,16 @@ export const TOOLS: Tool[] = [
   {
     name: 'create_database',
     description:
-      'Create a new Attribute View database. This creates a dedicated page containing the DB. ' +
-      'IMPORTANT: If user wants the DB inside/under an existing document, you MUST pass parentDocId with that document block ID. ' +
-      'Without parentDocId, the DB page lands at notebook root (not inside any doc). ' +
+      'Create a new Attribute View database. ' +
+      'With parentDocId: embeds the database TABLE INSIDE that document (appears as content in the page). ' +
+      'Without parentDocId: creates a standalone DB page at notebook root. ' +
       'Do NOT include "block" in fields — the primary Name field is auto-created.',
     inputSchema: {
       type: 'object',
       properties: {
         notebookId: { type: 'string', description: 'Notebook ID' },
         name: { type: 'string', description: 'Database name (also the page title)' },
-        parentDocId: { type: 'string', description: 'Parent document ID — creates DB page as child of this doc (optional, defaults to notebook root)' },
+        parentDocId: { type: 'string', description: 'Document ID to embed the database INTO (the DB table appears as content inside this page)' },
         fields: {
           type: 'array',
           items: {
