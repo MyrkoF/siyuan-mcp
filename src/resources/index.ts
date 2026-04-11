@@ -183,14 +183,18 @@ Create database entry:
     values: [{fieldId:"xxx", type:"select", content:"Active"}]
   }])
 
-Create database:
-  list_notebooks                                     → get notebookId
-  create_database(notebookId, name:"My DB", fields:[
-    {name:"Status", type:"select"},
-    {name:"Priority", type:"select"},
-    {name:"Due", type:"date"},
-    {name:"Done", type:"checkbox"}
+Create database under an existing document:
+  create_document(notebook, path, title)             → returns doc block ID
+  create_database(notebookId, name:"My DB",
+    parentDocId: "<doc block ID from step above>",
+    fields:[
+      {name:"Status", type:"select"},
+      {name:"Priority", type:"select"},
+      {name:"Due", type:"date"},
+      {name:"Done", type:"checkbox"}
   ])
+  IMPORTANT: Always pass parentDocId when the DB should live under a specific document.
+  Without parentDocId the DB page is created at notebook root (orphaned).
   Note: primary Name field is auto-created. Do NOT include "block" in fields.
 
 ---
