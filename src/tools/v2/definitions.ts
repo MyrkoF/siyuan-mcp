@@ -204,8 +204,8 @@ export const TOOLS: Tool[] = [
     name: 'create_database',
     description:
       'Create a new Attribute View database. This creates a dedicated page containing the DB. ' +
-      'Use parentDocId to nest it under an existing document (e.g. pass the ID from create_document). ' +
-      'Without parentDocId, the DB page is created at notebook root. ' +
+      'IMPORTANT: If user wants the DB inside/under an existing document, you MUST pass parentDocId with that document block ID. ' +
+      'Without parentDocId, the DB page lands at notebook root (not inside any doc). ' +
       'Do NOT include "block" in fields — the primary Name field is auto-created.',
     inputSchema: {
       type: 'object',
