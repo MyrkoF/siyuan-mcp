@@ -77,7 +77,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
         return {
           ...createResponse,
           data: {
-            id: createResponse.data?.id || `${Date.now().toString().substring(0, 14)}-${Math.random().toString(36).substring(2, 9)}`,
+            id: (typeof createResponse.data === 'string' ? createResponse.data : createResponse.data?.id) || `${Date.now().toString().substring(0, 14)}-${Math.random().toString(36).substring(2, 9)}`,
             notebook,
             path: path || '/',
             title: title.trim(),

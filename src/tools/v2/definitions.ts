@@ -99,7 +99,8 @@ export const TOOLS: Tool[] = [
     name: 'create_document',
     description:
       'Create a document (or subdocument) in a notebook. ' +
-      'Use nested path for subdocuments: path:"/Parent/Child".',
+      'Use nested path for subdocuments: path:"/Parent/Child". ' +
+      'Returns the document block ID — use it as parentDocId in create_database to nest a DB under this doc.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -203,7 +204,8 @@ export const TOOLS: Tool[] = [
     name: 'create_database',
     description:
       'Create a new Attribute View database. This creates a dedicated page containing the DB. ' +
-      'Use parentDocId to nest it as a sub-page under an existing document (otherwise created at notebook root). ' +
+      'Use parentDocId to nest it under an existing document (e.g. pass the ID from create_document). ' +
+      'Without parentDocId, the DB page is created at notebook root. ' +
       'Do NOT include "block" in fields — the primary Name field is auto-created.',
     inputSchema: {
       type: 'object',
