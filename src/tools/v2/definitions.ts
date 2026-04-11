@@ -145,7 +145,9 @@ export const TOOLS: Tool[] = [
   // ======================== BLOCKS ========================
   {
     name: 'insert_block',
-    description: 'Insert a markdown block into a document.',
+    description:
+      'Insert a markdown block into a document. ' +
+      'To embed an existing database, use: <div data-type="NodeAttributeView" data-av-id="DB_ID" data-av-type="table"></div>',
     inputSchema: {
       type: 'object',
       properties: {
@@ -200,13 +202,15 @@ export const TOOLS: Tool[] = [
   {
     name: 'create_database',
     description:
-      'Create a new Attribute View database in a notebook. ' +
+      'Create a new Attribute View database. This creates a dedicated page containing the DB. ' +
+      'Use parentDocId to nest it as a sub-page under an existing document (otherwise created at notebook root). ' +
       'Do NOT include "block" in fields — the primary Name field is auto-created.',
     inputSchema: {
       type: 'object',
       properties: {
         notebookId: { type: 'string', description: 'Notebook ID' },
-        name: { type: 'string', description: 'Database name (also the document title)' },
+        name: { type: 'string', description: 'Database name (also the page title)' },
+        parentDocId: { type: 'string', description: 'Parent document ID — creates DB page as child of this doc (optional, defaults to notebook root)' },
         fields: {
           type: 'array',
           items: {

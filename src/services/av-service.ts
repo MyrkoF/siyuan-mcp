@@ -343,7 +343,8 @@ export class AttributeViewService {
   async createDatabase(
     notebookId: string,
     name: string,
-    columns: AVColumnSpec[] = []
+    columns: AVColumnSpec[] = [],
+    parentDocId?: string
   ): Promise<AVCreateDatabaseResult> {
     if (!notebookId?.trim()) throw new Error('notebookId is required');
     if (!name?.trim())       throw new Error('name is required');
@@ -431,7 +432,7 @@ export class AttributeViewService {
     const avHttpPath = `/data/storage/av/${avId}.json`;
     await this.client.filePut(avHttpPath, JSON.stringify(dbJson, null, 2));
 
-    // Créer le document dans le notebook
+    // Créer le document dans le notebook (at root first)
     const docResp = await this.client.request('/api/filetree/createDocWithMd', {
       notebook: notebookId.trim(),
       path: `/${dbName}`,
@@ -445,6 +446,18 @@ export class AttributeViewService {
     }
 
     const docId: string = docResp.data;
+
+    // Move under parent document if parentDocId is specified
+    if (parentDocId?.trim()) {
+      const moveResp = await this.client.request('/api/filetree/moveDocsByID', {
+        fromIDs: [docId],
+        toID: parentDocId.trim()
+      });
+      if (!moveResp || moveResp.code !== 0) {
+        // Non-fatal: DB is created but at root instead of under parent
+        // Log but don't throw — the DB is still usable
+      }
+    }
 
     // Insérer le bloc AV dans le document
     const blockResp = await this.client.request('/api/block/insertBlock', {

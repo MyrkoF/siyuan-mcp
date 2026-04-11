@@ -280,7 +280,7 @@ async function handleBatchBlockOps(args: any): Promise<StandardResponse> {
 }
 
 async function handleCreateDatabase(args: any): Promise<StandardResponse> {
-  const result = await avService.createDatabase(args.notebookId, args.name, args.fields || []);
+  const result = await avService.createDatabase(args.notebookId, args.name, args.fields || [], args.parentDocId);
   return createStandardResponse(true, `Database "${result.name}" created`, result);
 }
 
