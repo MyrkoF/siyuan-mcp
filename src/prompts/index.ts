@@ -1,5 +1,4 @@
 import { createSiyuanClient } from '../siyuanClient';
-import { contextManager } from '../contextStore/manager';
 import logger from '../logger';
 
 // MCP提示模板定义
@@ -134,17 +133,7 @@ Please provide complete document content.`
 
     // 内容总结助手
     this.templates.set('content-summarizer', async (variables) => {
-      const { content, sessionId, style = 'concise' } = variables;
-      
-      let contextInfo = '';
-      if (sessionId) {
-        try {
-          const context = await contextManager.exportContextSummary(sessionId);
-          contextInfo = `\nRelated context:\n${context.summary}`;
-        } catch (error) {
-          contextInfo = '';
-        }
-      }
+      const { content, style = 'concise' } = variables;
 
       const styleInstructions = {
         concise: 'Provide a concise bullet-point summary',
@@ -161,7 +150,7 @@ Please provide complete document content.`
               type: 'text',
               text: `You are a content summarization assistant. You help users summarize and analyze document content.
 
-Summary style: ${styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.concise}${contextInfo}`
+Summary style: ${styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.concise}`
             }
           },
           {
@@ -179,21 +168,9 @@ ${content}`
 
     // 知识连接助手
     this.templates.set('knowledge-connector', async (variables) => {
-      const { topic, sessionId, depth = 'medium' } = variables;
-      
+      const { topic, depth = 'medium' } = variables;
+
       let relatedContent = '';
-      let contextRefs = '';
-      
-      if (sessionId) {
-        try {
-          const context = await contextManager.getReferences(sessionId);
-          contextRefs = context.map(ref => 
-            `- ${ref.type}: ${ref.content?.substring(0, 100)}...`
-          ).join('\n');
-        } catch (error) {
-          contextRefs = '';
-        }
-      }
 
       if (topic) {
         try {
@@ -224,9 +201,6 @@ Analysis depth: ${depthInstructions[depth as keyof typeof depthInstructions] || 
 
 Related content:
 ${relatedContent || 'No related content found'}
-
-Current context references:
-${contextRefs || 'No context references'}
 
 Help the user build knowledge connections and discover potential relationships and insights.`
             }
@@ -369,7 +343,6 @@ Create high-quality content with a clear structure and logical flow.`
         description: 'Content summarization assistant - summarize and analyze document content',
         arguments: [
           { name: 'content', description: 'Content to summarize', required: true, type: 'string' },
-          { name: 'sessionId', description: 'Session ID (for context retrieval)', type: 'string' },
           { name: 'style', description: 'Summary style (concise/detailed/bullet/academic)', type: 'string', default: 'concise' }
         ]
       },
@@ -378,7 +351,6 @@ Create high-quality content with a clear structure and logical flow.`
         description: 'Knowledge connection assistant - discover and build connections between ideas',
         arguments: [
           { name: 'topic', description: 'Topic to analyze', required: true, type: 'string' },
-          { name: 'sessionId', description: 'Session ID (for context retrieval)', type: 'string' },
           { name: 'depth', description: 'Analysis depth (shallow/medium/deep)', type: 'string', default: 'medium' }
         ]
       },
