@@ -1,16 +1,13 @@
 /**
- * 思源客户端入口文件
- * 提供向后兼容的API接口
+ * SiYuan client entry point
+ * Provides backward-compatible API interface
  */
 
 import logger from '../logger';
 import { createBlockOperations, BlockOperations } from './blocks';
 import { createDocumentOperations, DocumentOperations } from './documents';
 import { createAssetOperations, AssetOperations } from './assets';
-import { SqlService } from '../services/sql-service';
-import { FileService } from '../services/file-service';
 import { createPortDiscovery } from '../utils/portDiscovery';
-import { BatchOperations } from '../tools/batchOperations';
 import { withRetry } from '../utils/retry';
 import axios, { AxiosInstance } from 'axios';
 
@@ -21,60 +18,19 @@ export interface SiyuanClientConfig {
 }
 
 export interface SiyuanClient {
-  // 基础方法
+  // Core methods
   request(endpoint: string, data?: any): Promise<any>;
   /** Read a file from the workspace. Returns raw content (not {code,data} wrapper). */
   fileGet(workspacePath: string): Promise<any>;
   /** Write a file to the workspace via multipart putFile. Throws on error. */
   filePut(workspacePath: string, content: string): Promise<void>;
-  checkHealth(): Promise<{ status: string; detail: any }>;
-  searchNotes(query: string, limit?: number): Promise<any>;
-  
-  // SQL查询方法
-  executeSql(params: { stmt: string }): Promise<any>;
-  
-  // 块操作方法
-  insertBlock(params: { data: string; dataType: string; parentID?: string; previousID?: string }): Promise<any>;
-  getBlockByID(params: { id: string }): Promise<any>;
-  
-  // 新增的递归搜索和批量操作方法
-  recursiveSearchNotes(
-    query: string, 
-    notebook?: string, 
-    options?: {
-      maxDepth?: number;
-      includeContent?: boolean;
-      fuzzyMatch?: boolean;
-      limit?: number;
-    }
-  ): Promise<any>;
-  
-  batchReadAllDocuments(
-    notebookId: string, 
-    options?: {
-      maxDepth?: number;
-      includeContent?: boolean;
-      batchSize?: number;
-      delay?: number;
-    }
-  ): Promise<any[]>;
-  
-  // 操作模块
+  /** Convenience: full-text search via /api/search/fullTextSearchBlock */
+  searchNotes(query: string, limit?: number): Promise<any[]>;
+
+  // Operation modules
   blocks: BlockOperations;
   documents: DocumentOperations;
   assets: AssetOperations;
-  sqlService: SqlService;
-  file: FileService;
-  batch: BatchOperations;
-  system: {
-    getSystemInfo(): Promise<any>;
-  };
-  
-  // 兼容性方法
-  getBlock(id: string): Promise<any>;
-  createBlock(content: string, parentID?: string): Promise<any>;
-  updateBlock(id: string, content: string): Promise<any>;
-  deleteBlock(id: string): Promise<any>;
 }
 
 export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
@@ -86,10 +42,10 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
     autoDiscoverPort = true
   } = config;
   
-  // 端口发现状态
+  // Port discovery state
   let portDiscoveryPromise: Promise<void> | null = null;
   
-  // 创建HTTP客户端
+  // Create HTTP client
   const httpClient = axios.create({
     baseURL: baseURL || undefined,
     timeout: 30000,
@@ -100,7 +56,7 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
   });
 
   /**
-   * 自动发现端口
+   * Auto-discover port
    */
   const discoverPort = async (): Promise<void> => {
     if (autoDiscoverPort && (!baseURL || baseURL === '' || baseURL === undefined)) {
@@ -111,20 +67,20 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
         if (result) {
           baseURL = result.baseURL;
           httpClient.defaults.baseURL = result.baseURL;
-          logger.info(`端口发现成功，使用端口: ${result.port}，URL: ${result.baseURL}`);
+          logger.info(`Port discovered, using port: ${result.port}. URL: ${result.baseURL}`);
         } else {
-          logger.warn('端口发现失败，请确保思源笔记正在运行。将尝试使用默认端口 6806');
+          logger.warn('Port discovery failed. Ensure SiYuan is running. Will try default port 6806');
           baseURL = 'http://127.0.0.1:6806/';
           httpClient.defaults.baseURL = baseURL;
         }
       } catch (error) {
-        logger.error('端口发现过程中出错:', error);
-        logger.warn('将尝试使用默认端口 6806 连接');
+        logger.error('Port discovery error:', error);
+        logger.warn('Will try connecting with default port 6806');
         baseURL = 'http://127.0.0.1:6806/';
         httpClient.defaults.baseURL = baseURL;
       }
     } else if (baseURL) {
-      logger.info(`使用自定义思源笔记 URL: ${baseURL}`);
+      logger.info(`Using custom SiYuan URL: ${baseURL}`);
     }
   };
 
@@ -137,58 +93,40 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
     }
 
     try {
-      logger.info(`发送请求到: ${endpoint}`, { data });
+      logger.info(`Sending request to: ${endpoint}`, { data });
       const response = await withRetry(async () => {
         return await httpClient.post(endpoint, data);
       }, { maxRetries: 3 });
       
-      logger.info(`请求响应: ${endpoint}`, { status: response.status, data: response.data });
+      logger.info(`Response from: ${endpoint}`, { status: response.status, data: response.data });
       return response.data;
     } catch (error: any) {
       if (error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET') {
-        logger.warn(`连接失败，可能是思源笔记端口变化，尝试重新发现端口...`);
+        logger.warn(`Connection failed, port may have changed. Retrying with port discovery...`);
         
         try {
           await discoverPort();
           
-          logger.info(`重试请求: ${endpoint}`);
+          logger.info(`Retrying request: ${endpoint}`);
           const response = await httpClient.post(endpoint, data);
-          logger.info(`重试请求响应: ${endpoint}`, { status: response.status, data: response.data });
+          logger.info(`Retry response: ${endpoint}`, { status: response.status, data: response.data });
           return response.data;
         } catch (retryError: any) {
-          logger.error(`重试请求失败: ${endpoint}`, { error: retryError.message });
+          logger.error(`Retry request failed: ${endpoint}`, { error: retryError.message });
           throw retryError;
         }
       }
       
-      logger.error(`API请求失败: ${endpoint}`, { error: error.message, data });
+      logger.error(`API request failed: ${endpoint}`, { error: error.message, data });
       throw error;
     }
   };
 
-  // 创建操作模块
+  // Create operation modules
   const blocks = createBlockOperations({ request } as any);
   const documents = createDocumentOperations({ request } as any);
   const assets = createAssetOperations({ request } as any);
   
-  // 创建SQL和文件服务
-  const sqlService = new SqlService({ request } as any);
-  const fileService = new FileService({ request } as any);
-  
-  // 先创建client对象的基本结构
-  const clientBase: Partial<SiyuanClient> = {
-    request,
-    blocks,
-    documents,
-    assets,
-    sqlService: sqlService,
-    file: fileService,
-    // 其他方法会在后面添加
-  };
-  
-  // 然后创建batch实例，传入完整的client引用
-  const batch = new BatchOperations(clientBase as SiyuanClient);
-
   const client: SiyuanClient = {
     request,
 
@@ -220,164 +158,24 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
       }
     },
 
-    async checkHealth() {
+    async searchNotes(query: string, limit = 10): Promise<any[]> {
       try {
-        const response = await request('/api/system/version');
-        return {
-          status: response.code === 0 ? 'healthy' : 'unhealthy',
-          detail: response
-        };
-      } catch (error: any) {
-        return {
-          status: 'unhealthy',
-          detail: { error: error.message }
-        };
-      }
-    },
-
-    async searchNotes(query: string, limit = 10) {
-      try {
-        if (!query || query.trim() === '') {
-          throw new Error('搜索查询不能为空');
-        }
-
-        const searchData = {
+        const resp = await request('/api/search/fullTextSearchBlock', {
           query: query.trim(),
-          types: {
-            document: true,
-            heading: true,
-            list: true,
-            listItem: true,
-            codeBlock: true,
-            mathBlock: true,
-            table: true,
-            blockquote: true,
-            superBlock: true,
-            paragraph: true
-          },
-          method: 0, // 0: 关键字搜索
-          orderBy: 7, // 7: 相关度降序
-          groupBy: 0, // 0: 不分组
-          page: 1,
-          pageSize: Math.min(Math.max(limit, 1), 100) // 限制在1-100之间
-        };
-
-        logger.info('执行搜索', { query, limit, searchData });
-        
-        // 使用正确的 SiYuan API 端点
-        const response = await request('/api/search/fullTextSearchBlock', searchData);
-        
-        if (response.code !== 0) {
-          logger.error('搜索API返回错误', { code: response.code, msg: response.msg });
-          throw new Error(`搜索失败: ${response.msg || '未知错误'}`);
-        }
-
-        const results = response.data?.blocks || [];
-        logger.info(`搜索完成，找到 ${results.length} 个结果`);
-        
-        return {
-          code: 0,
-          msg: 'success',
-          data: {
-            blocks: results,
-            matchedBlockCount: results.length,
-            matchedRootCount: response.data?.matchedRootCount || 0,
-            pageCount: Math.ceil((response.data?.matchedBlockCount || results.length) / searchData.pageSize)
-          }
-        };
-      } catch (error: any) {
-        logger.error('搜索笔记失败', { query, limit, error: error.message });
-        return {
-          code: -1,
-          msg: error.message || '搜索失败',
-          data: {
-            blocks: [],
-            matchedBlockCount: 0,
-            matchedRootCount: 0,
-            pageCount: 0
-          }
-        };
+          types: { document: true, heading: true, paragraph: true, list: true, listItem: true, codeBlock: true, mathBlock: true, table: true, blockquote: true, superBlock: true },
+          method: 0, orderBy: 7, groupBy: 0, page: 1,
+          pageSize: Math.min(Math.max(limit, 1), 100)
+        });
+        return resp?.data?.blocks || [];
+      } catch {
+        return [];
       }
     },
 
-    // SQL查询方法
-    executeSql: async (params: { stmt: string }) => {
-      return await request('/api/sql/query', params);
-    },
-
-    // 块操作方法
-    insertBlock: async (params: { data: string; dataType: string; parentID?: string; previousID?: string }) => {
-      return await request('/api/block/insertBlock', params);
-    },
-
-    getBlockByID: async (params: { id: string }) => {
-      return await request('/api/block/getBlockKramdown', params);
-    },
-
-    // 递归搜索方法
-    async recursiveSearchNotes(
-      query: string, 
-      notebook?: string, 
-      options: {
-        maxDepth?: number;
-        includeContent?: boolean;
-        fuzzyMatch?: boolean;
-        limit?: number;
-      } = {}
-    ) {
-      return await documents.recursiveSearchDocs(query, notebook, options);
-    },
-
-    // 批量读取方法
-    async batchReadAllDocuments(
-      notebookId: string, 
-      options: {
-        maxDepth?: number;
-        includeContent?: boolean;
-        batchSize?: number;
-        delay?: number;
-      } = {}
-    ) {
-      return await documents.batchReadAllDocuments(notebookId, options);
-    },
-
-    // 操作模块
+    // Operation modules
     blocks,
     documents,
-    assets,
-    sqlService: sqlService,
-    file: fileService,
-    batch,
-    system: {
-      getSystemInfo: async () => {
-        return await request('/api/system/getConf');
-      }
-    },
-
-    // 兼容性方法
-    getBlock: async (id: string) => {
-      return await request('/api/block/getBlockKramdown', { id });
-    },
-
-    createBlock: async (content: string, parentID?: string) => {
-      return await request('/api/block/insertBlock', {
-        data: content,
-        dataType: 'markdown',
-        parentID
-      });
-    },
-
-    updateBlock: async (id: string, content: string) => {
-      return await request('/api/block/updateBlock', {
-        id,
-        data: content,
-        dataType: 'markdown'
-      });
-    },
-
-    deleteBlock: async (id: string) => {
-      return await request('/api/block/deleteBlock', { id });
-    }
+    assets
   };
 
   return client;

@@ -15,7 +15,7 @@ export interface SiyuanPortInfo {
 }
 
 /**
- * 思源笔记端口发现工具
+ * SiYuan port discovery utility
  */
 export class SiyuanPortDiscovery {
   private token: string;
@@ -25,28 +25,28 @@ export class SiyuanPortDiscovery {
   }
 
   /**
-   * 通过读取思源笔记的port.json文件获取端口信息
+   * Read port info from SiYuan port.json file
    */
   private async readPortFromConfigFile(): Promise<number | null> {
     try {
-      logger.silentInfo('尝试从port.json文件读取端口信息...');
+      logger.silentInfo('Trying to read port info from port.json...');
       
       const homeDir = os.homedir();
       const portJsonPath = path.join(homeDir, '.config', 'siyuan', 'port.json');
       
       if (!fs.existsSync(portJsonPath)) {
-        logger.silentInfo('port.json文件不存在');
+        logger.silentInfo('port.json file not found');
         return null;
       }
       
       const fileContent = fs.readFileSync(portJsonPath, 'utf8');
       const portData = JSON.parse(fileContent);
       
-      // port.json 格式: { "PID": "PORT" }
+      // port.json format: { "PID": "PORT" }
       const entries = Object.entries(portData) as [string, string][];
       
       if (entries.length === 0) {
-        logger.silentInfo('port.json文件中没有端口信息');
+        logger.silentInfo('No port info found in port.json');
         return null;
       }
       
@@ -68,11 +68,11 @@ export class SiyuanPortDiscovery {
             }
           }
         } catch (error) {
-          logger.warn('获取SiYuan-Kernel.exe进程列表失败:', error);
+          logger.warn('Failed to get SiYuan-Kernel.exe process list:', error);
         }
       }
       
-      logger.silentInfo(`找到SiYuan-Kernel.exe进程PIDs: ${Array.from(kernelPids).join(', ')}`);
+      logger.silentInfo(`Found SiYuan-Kernel.exe PIDs: ${Array.from(kernelPids).join(', ')}`);
       
       const validEntries = entries.filter(([pid, portStr]) => {
         const port = parseInt(portStr);
@@ -84,42 +84,42 @@ export class SiyuanPortDiscovery {
       
       for (const [pid, portStr] of kernelEntries) {
         const port = parseInt(portStr);
-        logger.silentInfo(`验证SiYuan-Kernel.exe进程 PID ${pid} 的端口: ${port}`);
+        logger.silentInfo(`Verifying SiYuan-Kernel.exe PID ${pid} port: ${port}`);
         
         if (await this.isValidSiyuanPort(port)) {
-          logger.silentInfo(`SiYuan-Kernel.exe进程 PID ${pid} 的端口 ${port} 验证成功`);
+          logger.silentInfo(`SiYuan-Kernel.exe PID ${pid} port ${port} Verification succeeded`);
           return port;
         }
       }
       
       for (const [pid, portStr] of otherEntries) {
         const port = parseInt(portStr);
-        logger.silentInfo(`验证端口: ${port} (PID: ${pid})`);
+        logger.silentInfo(`Verifying port: ${port} (PID: ${pid})`);
         
         if (await this.isValidSiyuanPort(port)) {
-          logger.silentInfo(`端口 ${port} 验证成功`);
+          logger.silentInfo(`Port ${port} Verification succeeded`);
           return port;
         }
       }
       
-      logger.silentInfo('port.json中的端口都无法连接');
+      logger.silentInfo('None of the ports in port.json are reachable');
       return null;
     } catch (error) {
-      logger.error('读取port.json文件失败:', error);
+      logger.error('Failed to read port.json:', error);
       return null;
     }
   }
 
   /**
-   * 通过SiYuan-Kernel.exe进程查找思源笔记占用的端口
+   * Find SiYuan port via SiYuan-Kernel.exe process
    */
   private async findSiyuanProcessPort(): Promise<number | null> {
     try {
-      logger.info('通过SiYuan-Kernel.exe进程查找端口...');
+      logger.info('Finding port via SiYuan-Kernel.exe process...');
       
-      // Windows系统命令
+      // Windows system commands
       if (process.platform === 'win32') {
-        // 获取SiYuan-Kernel.exe进程PID列表
+        // Get SiYuan-Kernel.exe process PID list
         const { stdout: processOutput } = await execAsync('tasklist /FI "IMAGENAME eq SiYuan-Kernel.exe" /FO CSV');
         const kernelPids = new Set();
         
@@ -136,17 +136,17 @@ export class SiyuanPortDiscovery {
         }
         
         if (kernelPids.size === 0) {
-          logger.info('未找到SiYuan-Kernel.exe进程');
+          logger.info('No SiYuan-Kernel.exe process found');
           return null;
         }
         
-        logger.info(`找到SiYuan-Kernel.exe进程PIDs: ${Array.from(kernelPids).join(', ')}`);
+        logger.info(`Found SiYuan-Kernel.exe PIDs: ${Array.from(kernelPids).join(', ')}`);
         
-        // 获取所有监听端口
+        // Get all listening ports
         const { stdout: netstatOutput } = await execAsync('netstat -ano | findstr LISTENING');
         const netstatLines = netstatOutput.split('\n');
         
-        // 查找内核进程监听的端口
+        // Find ports listened by kernel process
         for (const line of netstatLines) {
           if (line.includes('LISTENING')) {
             const match = line.match(/TCP\s+127\.0\.0\.1:(\d+)\s+.*LISTENING\s+(\d+)/);
@@ -154,13 +154,13 @@ export class SiyuanPortDiscovery {
               const port = parseInt(match[1]);
               const pid = match[2];
               
-              // 检查是否是SiYuan-Kernel.exe进程的PID
+              // Check if PID belongs to SiYuan-Kernel.exe
               if (kernelPids.has(pid)) {
-                logger.info(`发现SiYuan-Kernel.exe进程 PID ${pid} 监听端口: ${port}`);
+                logger.info(`Found SiYuan-Kernel.exe PID ${pid} listening on port: ${port}`);
                 
-                // 验证端口是否真的是思源API
+                // Verify port is actually SiYuan API
                 if (await this.isValidSiyuanPort(port)) {
-                  logger.info(`验证成功，端口 ${port} 是思源API`);
+                  logger.info(`Verification succeeded，Port ${port} is SiYuan API`);
                   return port;
                 }
               }
@@ -168,32 +168,32 @@ export class SiyuanPortDiscovery {
           }
         }
         
-        logger.info('SiYuan-Kernel.exe进程未监听任何有效的思源API端口');
+        logger.info('SiYuan-Kernel.exe not listening on any valid SiYuan API port');
         return null;
       } else {
-        // Linux/macOS系统命令
+        // Linux/macOS system commands
         try {
-          // 查找SiYuan-Kernel进程
+          // Find SiYuan-Kernel process
           const { stdout: processOutput } = await execAsync('ps aux | grep -i siyuan-kernel | grep -v grep');
           
           if (!processOutput.trim()) {
-            logger.info('未找到SiYuan-Kernel进程');
+            logger.info('No SiYuan-Kernel process found');
             return null;
           }
           
-          // 获取进程PID
+          // Get process PID
           const lines = processOutput.split('\n').filter(line => line.trim());
           for (const line of lines) {
             const parts = line.trim().split(/\s+/);
             if (parts.length >= 2) {
               const pid = parts[1];
-              logger.info(`找到SiYuan-Kernel进程 PID: ${pid}`);
+              logger.info(`Found SiYuan-Kernel PID: ${pid}`);
               
               try {
-                // 查找该进程占用的端口
+                // Find ports used by this process
                 const { stdout: lsofOutput } = await execAsync(`lsof -Pan -p ${pid} -i`);
                 
-                // 解析端口信息
+                // Parse port info
                 const portMatches = lsofOutput.match(/:(\d+)\s+\(LISTEN\)/g);
                 if (portMatches) {
                   for (const match of portMatches) {
@@ -201,9 +201,9 @@ export class SiyuanPortDiscovery {
                     if (portMatch) {
                       const port = parseInt(portMatch[1]);
                       if (port >= 3000 && port <= 65535) {
-                        logger.info(`发现SiYuan-Kernel进程监听端口: ${port}`);
+                        logger.info(`Found SiYuan-Kernel processlistening on port: ${port}`);
                         
-                        // 验证端口是否真的是思源API
+                        // Verify port is actually SiYuan API
                         if (await this.isValidSiyuanPort(port)) {
                           return port;
                         }
@@ -212,26 +212,26 @@ export class SiyuanPortDiscovery {
                   }
                 }
               } catch (lsofError) {
-                logger.warn(`查找PID ${pid} 的端口时出错:`, lsofError);
+                logger.warn(`Finding PID ${pid} ports error:`, lsofError);
                 continue;
               }
             }
           }
         } catch (error) {
-          logger.warn('查找SiYuan-Kernel进程时出错:', error);
+          logger.warn('Error finding SiYuan-Kernel process:', error);
         }
       }
       
-      logger.info('未能通过SiYuan-Kernel进程查找到思源端口');
+      logger.info('Could not find SiYuan port via SiYuan-Kernel process');
       return null;
     } catch (error) {
-      logger.warn('查找SiYuan-Kernel进程端口时出错:', error);
+      logger.warn('Error finding SiYuan-Kernel process port:', error);
       return null;
     }
   }
 
   /**
-   * 验证端口是否是有效的思源API端口
+   * Verify if port is a valid SiYuan API port
    */
   private async isValidSiyuanPort(port: number): Promise<boolean> {
     try {
@@ -258,17 +258,17 @@ export class SiyuanPortDiscovery {
 
 
   /**
-   * 测试指定端口是否为思源笔记服务
+   * Test if port serves SiYuan
    */
   private async testPort(port: number, isFixed: boolean, timeout = 5000): Promise<SiyuanPortInfo | null> {
     const baseURL = `http://127.0.0.1:${port}/`;
     
     try {
-      // 创建超时控制器
+      // Create timeout controller
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      // 1. 测试基本连接
+      // 1. Test basic connection
       const response = await fetch(baseURL, {
         signal: controller.signal,
         headers: {
@@ -282,7 +282,7 @@ export class SiyuanPortDiscovery {
         return null;
       }
 
-      // 2. 测试API端点
+      // 2. Test API endpoint
       const apiController = new AbortController();
       const apiTimeoutId = setTimeout(() => apiController.abort(), timeout);
       
@@ -302,7 +302,7 @@ export class SiyuanPortDiscovery {
       if (apiResponse.ok) {
         const result = await apiResponse.json();
         
-        // 验证是否为思源笔记API响应
+        // Verify SiYuan API response
         if (result && typeof result === 'object') {
           return {
             port,
@@ -315,7 +315,7 @@ export class SiyuanPortDiscovery {
 
       return null;
     } catch (error) {
-      // 忽略连接错误，这是正常的
+      // Ignore connection errors, this is expected
       return null;
     }
   }
@@ -323,18 +323,18 @@ export class SiyuanPortDiscovery {
 
 
   /**
-   * 自动发现并返回最佳端口配置
+   * Auto-discover and return best port configuration
    */
   async autoDiscover(): Promise<{ baseURL: string; port: number; version?: string } | null> {
-    logger.info('开始自动发现思源笔记端口...');
+    logger.info('Starting SiYuan port auto-discovery...');
     
     try {
-      // 1. 首先尝试从port.json文件读取端口（最直接的方法）
+      // 1. First try reading port from port.json (most direct method)
       const portFromFile = await this.readPortFromConfigFile();
       if (portFromFile) {
-        logger.info(`从port.json文件发现思源端口: ${portFromFile}`);
+        logger.info(`Discovered SiYuan port from port.json: ${portFromFile}`);
         
-        // 获取详细的端口信息包括版本
+        // Get detailed port info including version
         const detailedInfo = await this.testPort(portFromFile, false);
         if (detailedInfo) {
           return {
@@ -351,14 +351,14 @@ export class SiyuanPortDiscovery {
         };
       }
     } catch (error) {
-      logger.warn('从port.json文件读取端口失败:', error);
+      logger.warn('Failed to read port from port.json:', error);
     }
     
     try {
-      // 2. 如果port.json方法失败，尝试通过SiYuan-Kernel.exe进程查找端口
+      // 2. If port.json failed, try finding port via SiYuan-Kernel.exe
       const siyuanPort = await this.findSiyuanProcessPort();
       if (siyuanPort) {
-        logger.info(`通过SiYuan-Kernel.exe发现思源端口: ${siyuanPort}`);
+        logger.info(`Discovered SiYuan port via SiYuan-Kernel.exe: ${siyuanPort}`);
         
         return {
           baseURL: `http://127.0.0.1:${siyuanPort}/`,
@@ -367,17 +367,17 @@ export class SiyuanPortDiscovery {
         };
       }
     } catch (error) {
-      logger.warn('通过SiYuan-Kernel.exe查找端口失败:', error);
+      logger.warn('Failed to find port via SiYuan-Kernel.exe:', error);
     }
     
-    // 如果所有方法都失败，返回null
-    logger.warn('未发现任何可用的思源笔记端口');
+    // If all methods fail, return null
+    logger.warn('No available SiYuan port discovered');
     return null;
   }
 }
 
 /**
- * 创建端口发现器
+ * Create port discoverer
  */
 export function createPortDiscovery(token: string): SiyuanPortDiscovery {
   return new SiyuanPortDiscovery(token);

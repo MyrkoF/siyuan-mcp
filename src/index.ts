@@ -13,22 +13,22 @@ import {
 import logger from './logger.js';
 import { resourceDirectory } from './resources';
 import { promptTemplateManager } from './prompts';
-import { getAllMergedTools, handleMergedTool } from './tools/Tools.js';
+import { getAllTools, handleTool } from './tools/v2/index.js';
 
 const server = new Server(
-  { name: 'mcp_server_siyuan', version: '1.0.0' },
+  { name: 'mcp_server_siyuan', version: '2.0.0' },
   { capabilities: { tools: {}, resources: {}, prompts: {} } }
 );
 
 // ── Tools: Tools.ts is the single source of truth ──────────────────────────
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: getAllMergedTools() };
+  return { tools: getAllTools() };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   try {
-    return await handleMergedTool(name, args);
+    return await handleTool(name, args);
   } catch (error) {
     logger.error({ error, tool: name }, 'Tool execution failed');
     throw error;

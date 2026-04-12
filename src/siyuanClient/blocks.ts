@@ -1,25 +1,25 @@
 import { SiyuanClient } from './index';
 
 export interface BlockOperations {
-  // 块基础操作
+  // Core block operations
   getBlock(id: string): Promise<any>;
   updateBlock(id: string, content: string): Promise<any>;
   insertBlock(content: string, parentID?: string, previousID?: string): Promise<any>;
   deleteBlock(id: string): Promise<any>;
   moveBlock(id: string, parentID: string, previousID?: string): Promise<any>;
 
-  // 块插入操作
+  // Block insertion
   prependBlock(data: string, parentID: string, dataType?: string): Promise<any>;
   appendBlock(data: string, parentID: string, dataType?: string): Promise<any>;
 
-  // 块折叠操作
+  // Block folding
   foldBlock(id: string): Promise<any>;
   unfoldBlock(id: string): Promise<any>;
 
-  // 块引用操作
+  // Block references
   transferBlockRef(id: string, targetID: string): Promise<any>;
 
-  // 块查询操作
+  // Block queries
   getBlocksByType(type: string, limit?: number): Promise<any>;
   getChildBlocks(parentID: string): Promise<any>;
   getBlockBreadcrumb(id: string): Promise<any>;

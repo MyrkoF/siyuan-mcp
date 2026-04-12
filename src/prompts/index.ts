@@ -1,8 +1,7 @@
 import { createSiyuanClient } from '../siyuanClient';
-import { contextManager } from '../contextStore/manager';
 import logger from '../logger';
 
-// MCP提示模板定义
+// MCP prompt template definitions
 export interface MCPPrompt {
   name: string;
   description: string;
@@ -15,12 +14,12 @@ export interface MCPPrompt {
   }>;
 }
 
-// 提示模板变量
+// Prompt template variables
 export interface PromptVariables {
   [key: string]: any;
 }
 
-// 提示模板结果
+// Prompt template result
 export interface PromptResult {
   messages: Array<{
     role: 'system' | 'user' | 'assistant';
@@ -46,9 +45,9 @@ export class PromptTemplateManager {
     this.initializeTemplates();
   }
 
-  // 初始化内置模板
+  // Initialize built-in templates
   private initializeTemplates() {
-    // 笔记搜索助手
+    // Note search assistant
     this.templates.set('note-search-assistant', async (variables) => {
       const { query, context = '', limit = 10 } = variables;
       
@@ -89,7 +88,7 @@ Use the search results to provide helpful information and suggestions to the use
       };
     });
 
-    // 文档创建助手
+    // Document creation assistant
     this.templates.set('document-creator', async (variables) => {
       const { title, topic, notebook, outline = '' } = variables;
       
@@ -132,19 +131,9 @@ Please provide complete document content.`
       };
     });
 
-    // 内容总结助手
+    // Content summarizer
     this.templates.set('content-summarizer', async (variables) => {
-      const { content, sessionId, style = 'concise' } = variables;
-      
-      let contextInfo = '';
-      if (sessionId) {
-        try {
-          const context = await contextManager.exportContextSummary(sessionId);
-          contextInfo = `\nRelated context:\n${context.summary}`;
-        } catch (error) {
-          contextInfo = '';
-        }
-      }
+      const { content, style = 'concise' } = variables;
 
       const styleInstructions = {
         concise: 'Provide a concise bullet-point summary',
@@ -161,7 +150,7 @@ Please provide complete document content.`
               type: 'text',
               text: `You are a content summarization assistant. You help users summarize and analyze document content.
 
-Summary style: ${styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.concise}${contextInfo}`
+Summary style: ${styleInstructions[style as keyof typeof styleInstructions] || styleInstructions.concise}`
             }
           },
           {
@@ -177,23 +166,11 @@ ${content}`
       };
     });
 
-    // 知识连接助手
+    // Knowledge connector
     this.templates.set('knowledge-connector', async (variables) => {
-      const { topic, sessionId, depth = 'medium' } = variables;
-      
+      const { topic, depth = 'medium' } = variables;
+
       let relatedContent = '';
-      let contextRefs = '';
-      
-      if (sessionId) {
-        try {
-          const context = await contextManager.getReferences(sessionId);
-          contextRefs = context.map(ref => 
-            `- ${ref.type}: ${ref.content?.substring(0, 100)}...`
-          ).join('\n');
-        } catch (error) {
-          contextRefs = '';
-        }
-      }
 
       if (topic) {
         try {
@@ -225,9 +202,6 @@ Analysis depth: ${depthInstructions[depth as keyof typeof depthInstructions] || 
 Related content:
 ${relatedContent || 'No related content found'}
 
-Current context references:
-${contextRefs || 'No context references'}
-
 Help the user build knowledge connections and discover potential relationships and insights.`
             }
           },
@@ -242,7 +216,7 @@ Help the user build knowledge connections and discover potential relationships a
       };
     });
 
-    // 学习路径规划助手
+    // Learning path planner
     this.templates.set('learning-path-planner', async (variables) => {
       const { subject, level = 'beginner', goals = '', timeframe = '' } = variables;
       
@@ -288,7 +262,7 @@ Please provide a detailed study plan and recommendations.`
       };
     });
 
-    // 写作助手
+    // Writing assistant
     this.templates.set('writing-assistant', async (variables) => {
       const { type = 'article', topic, audience = 'general', tone = 'professional' } = variables;
       
@@ -342,7 +316,7 @@ Create high-quality content with a clear structure and logical flow.`
     });
   }
 
-  // 获取所有可用的提示模板
+  // Get all available prompt templates
   getAvailablePrompts(): MCPPrompt[] {
     return [
       {
@@ -369,7 +343,6 @@ Create high-quality content with a clear structure and logical flow.`
         description: 'Content summarization assistant - summarize and analyze document content',
         arguments: [
           { name: 'content', description: 'Content to summarize', required: true, type: 'string' },
-          { name: 'sessionId', description: 'Session ID (for context retrieval)', type: 'string' },
           { name: 'style', description: 'Summary style (concise/detailed/bullet/academic)', type: 'string', default: 'concise' }
         ]
       },
@@ -378,7 +351,6 @@ Create high-quality content with a clear structure and logical flow.`
         description: 'Knowledge connection assistant - discover and build connections between ideas',
         arguments: [
           { name: 'topic', description: 'Topic to analyze', required: true, type: 'string' },
-          { name: 'sessionId', description: 'Session ID (for context retrieval)', type: 'string' },
           { name: 'depth', description: 'Analysis depth (shallow/medium/deep)', type: 'string', default: 'medium' }
         ]
       },
@@ -405,7 +377,7 @@ Create high-quality content with a clear structure and logical flow.`
     ];
   }
 
-  // 获取提示模板
+  // Get prompt template
   async getPrompt(name: string, variables: PromptVariables = {}): Promise<PromptResult> {
     const template = this.templates.get(name);
     if (!template) {
@@ -422,7 +394,7 @@ Create high-quality content with a clear structure and logical flow.`
     }
   }
 
-  // 注册自定义模板
+  // Register custom template
   registerTemplate(
     name: string, 
     template: (variables: PromptVariables) => Promise<PromptResult>
@@ -431,7 +403,7 @@ Create high-quality content with a clear structure and logical flow.`
     logger.info({ name }, 'Registered custom prompt template');
   }
 
-  // 移除模板
+  // Remove template
   removeTemplate(name: string): boolean {
     const removed = this.templates.delete(name);
     if (removed) {
@@ -440,7 +412,7 @@ Create high-quality content with a clear structure and logical flow.`
     return removed;
   }
 
-  // 验证模板变量
+  // Validate template variables
   validateVariables(name: string, variables: PromptVariables): { valid: boolean; errors: string[] } {
     const prompts = this.getAvailablePrompts();
     const prompt = prompts.find(p => p.name === name);
@@ -463,5 +435,5 @@ Create high-quality content with a clear structure and logical flow.`
   }
 }
 
-// 创建默认的提示模板管理器实例
+// Create default prompt template manager instance
 export const promptTemplateManager = new PromptTemplateManager();

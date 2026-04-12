@@ -1,6 +1,6 @@
 /**
- * 完全静默的日志记录器
- * 用户不需要任何日志输出
+ * Completely silent logger
+ * No log output for end users
  */
 
 interface LogLevel {
@@ -18,34 +18,34 @@ const LOG_LEVELS: LogLevel = {
 };
 
 class Logger {
-  private currentLevel: number = LOG_LEVELS.ERROR + 1; // 设置为最高级别，禁用所有日志
+  private currentLevel: number = LOG_LEVELS.ERROR + 1; // Set above max level to disable all logging
 
   setLevel(level: number): void {
-    // 忽略设置，保持静默
+    // Ignore setting, stay silent
   }
 
   debug(message: any, ...args: any[]): void {
-    // 完全静默 - 用户不需要任何日志
+    // Silent - no output
   }
 
   info(message: any, ...args: any[]): void {
-    // 完全静默 - 用户不需要任何日志
+    // Silent - no output
   }
 
   warn(message: any, ...args: any[]): void {
-    // 完全静默 - 用户不需要任何日志
+    // Silent - no output
   }
 
   error(message: any, ...args: any[]): void {
-    // 完全静默 - 用户不需要任何日志
+    // Silent - no output
   }
 
   silentInfo(message: any, ...args: any[]): void {
-    // 完全静默 - 用户不需要任何日志
+    // Silent - no output
   }
 
   private formatMessage(message: any, ...args: any[]): string {
-    // 保留方法以避免编译错误，但不使用
+    // Keep method to avoid compile errors, unused
     return '';
   }
 }
