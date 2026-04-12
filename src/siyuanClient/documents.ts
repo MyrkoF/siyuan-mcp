@@ -1,24 +1,18 @@
 import { SiyuanClient } from './index';
-import { createBatchOptimizer } from '../utils/batchOptimizer';
 
 export interface DocumentOperations {
-  // 基础文档操作
+  // Core document operations
   getDoc(id: string): Promise<any>;
   createDoc(notebook: string, path: string, title: string, markdown?: string): Promise<any>;
   updateDoc(id: string, markdown: string): Promise<any>;
   deleteDoc(id: string): Promise<any>;
-  
-  // 文档树操作
+  // Document tree
   getDocTree(notebook: string): Promise<any>;
-  
-  // 搜索操作
+  // Search
   searchDocs(query: string): Promise<any>;
-  
-  // 新增的递归搜索和批量操作
+  // Recursive search and batch operations (legacy v1)
   recursiveSearchDocs(query: string, notebook?: string, options?: any): Promise<any>;
   batchReadAllDocuments(notebookId: string, options?: any): Promise<any[]>;
-  
-  // 添加缺失的方法
   listDocs(notebook: string, path?: string): Promise<any>;
   buildDocumentTree(documentIds: string[], maxDepth?: number): Promise<any[]>;
   getChildDocuments(parentId: string, maxDepth?: number): Promise<any[]>;
@@ -32,38 +26,37 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
     },
 
     async createDoc(notebook: string, path: string, title: string, markdown: string = '') {
-      // 强制验证笔记本存在
       if (!notebook || typeof notebook !== 'string') {
-        throw new Error('创建文档失败: 必须提供有效的笔记本ID');
+        throw new Error('createDoc failed: a valid notebook ID is required');
       }
-      
-      // 验证笔记本是否存在
+
+      // Validate notebook exists (fix #1: trim IDs before comparison)
       try {
         const notebooksResponse = await client.request('/api/notebook/lsNotebooks');
         if (notebooksResponse.code !== 0) {
-          throw new Error(`获取笔记本列表失败: ${notebooksResponse.msg}`);
+          throw new Error(`Failed to list notebooks: ${notebooksResponse.msg}`);
         }
-        
+
         const notebooks = notebooksResponse.data?.notebooks || [];
-        const targetNotebook = notebooks.find((nb: any) => nb.id === notebook);
-        
+        const notebookTrimmed = notebook.trim();
+        const targetNotebook = notebooks.find((nb: any) => nb.id.trim() === notebookTrimmed);
+
         if (!targetNotebook) {
-          throw new Error(`创建文档失败: 笔记本 ${notebook} 不存在。请先创建笔记本或使用有效的笔记本ID`);
+          throw new Error(`createDoc failed: notebook ${notebook} not found. Create the notebook first or use a valid notebook ID`);
         }
-        
+
         if (targetNotebook.closed) {
-          throw new Error(`创建文档失败: 笔记本 ${notebook} 已关闭。请先打开笔记本`);
+          throw new Error(`createDoc failed: notebook ${notebook} is closed. Open it first`);
         }
       } catch (error) {
         if (error instanceof Error) {
           throw error;
         }
-        throw new Error(`验证笔记本时出错: ${error}`);
+        throw new Error(`Notebook validation error: ${error}`);
       }
-      
-      // 验证标题
+
       if (!title || typeof title !== 'string' || title.trim().length === 0) {
-        throw new Error('创建文档失败: 必须提供有效的文档标题');
+        throw new Error('createDoc failed: a valid document title is required');
       }
       
       const createResponse = await client.request('/api/filetree/createDocWithMd', {
@@ -73,7 +66,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
       });
       
       if (createResponse.code === 0) {
-        // 构造更有用的返回信息
+        // Build a more useful return object
         return {
           ...createResponse,
           data: {
@@ -126,7 +119,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
     },
 
     /**
-     * 递归搜索文档（支持多层级文档遍历）
+     * Recursive document search (supports multi-level traversal)
      */
     async recursiveSearchDocs(
       query: string, 
@@ -146,7 +139,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
       } = options;
 
       try {
-        // 构建递归搜索参数
+        // Build recursive search params
         const searchData: any = {
           query: fuzzyMatch ? `*${query}*` : query,
           method: fuzzyMatch ? 0 : 1,
@@ -167,20 +160,20 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
           searchData.paths = [`/data/${notebook}`];
         }
 
-        // 执行基础搜索
+        // Execute base search
         const searchResult = await client.request('/api/search/searchBlock', searchData);
         
         if (!searchResult.data?.blocks) {
-          return { code: 0, data: { blocks: [], documentsTree: [] }, msg: '搜索完成，无结果' };
+          return { code: 0, data: { blocks: [], documentsTree: [] }, msg: 'Search complete, no results' };
         }
 
-        // 收集所有相关文档ID
+        // Collect all related document IDs
         const documentIds = [...new Set(searchResult.data.blocks.map((block: any) => String(block.root_id)))] as string[];
         
-        // 构建文档树结构
+        // Build document tree structure
         const documentsTree = await this.buildDocumentTree(documentIds, maxDepth);
         
-        // 如果需要包含内容，批量获取文档详细信息
+        // If content is needed, batch-fetch document details
         let documentsContent = [];
         if (includeContent) {
           documentsContent = await this.batchGetDocuments(documentIds.slice(0, 20));
@@ -195,16 +188,16 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
             totalDocuments: documentIds.length,
             searchOptions: options
           },
-          msg: `递归搜索完成，找到 ${documentIds.length} 个相关文档`
+          msg: `Recursive search complete, found ${documentIds.length} related documents`
         };
 
       } catch (error: any) {
-        throw new Error(`递归搜索失败: ${error.message}`);
+        throw new Error(`Recursive search failed: ${error.message}`);
       }
     },
 
     /**
-     * 构建文档树结构
+     * Build document tree structure
      */
     async buildDocumentTree(documentIds: string[], maxDepth: number = 10): Promise<any[]> {
       const documentTree: any[] = [];
@@ -215,13 +208,13 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
           if (docInfo.code === 0) {
             const treeNode: any = {
               id: docId,
-              title: docInfo.data.title || '无标题',
+              title: docInfo.data.title || 'Untitled',
               notebook: docInfo.data.box,
               path: docInfo.data.path,
               children: []
             };
 
-            // 递归获取子文档
+            // Recursively get child documents
             if (maxDepth > 0) {
               treeNode.children = await this.getChildDocuments(docId, maxDepth - 1);
             }
@@ -229,7 +222,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
             documentTree.push(treeNode);
           }
         } catch (error) {
-          // 完全禁用日志输出 - 用户不需要任何日志
+          // Silent - no log output
         }
       }
 
@@ -237,7 +230,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
     },
 
     /**
-     * 获取子文档
+     * Get child documents
      */
     async getChildDocuments(parentId: string, remainingDepth: number): Promise<any[]> {
       if (remainingDepth <= 0) return [];
@@ -251,7 +244,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
             if (block.type === 'NodeDocument') {
               const childDoc = {
                 id: block.id,
-                title: block.content || '无标题',
+                title: block.content || 'Untitled',
                 type: block.type,
                 children: await this.getChildDocuments(block.id, remainingDepth - 1)
               };
@@ -262,13 +255,13 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
 
         return childDocs;
       } catch (error) {
-        // 完全禁用日志输出 - 用户不需要任何日志: ${error}\n`);
+        // Silent - no log output: ${error}\n`);
         return [];
       }
     },
 
     /**
-     * 批量获取文档内容
+     * Batch get document content
      */
     async batchGetDocuments(documentIds: string[]): Promise<any[]> {
       const batchSize = 5;
@@ -281,7 +274,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
             const doc = await this.getDoc(id);
             return doc.code === 0 ? { id, ...doc.data } : null;
           } catch (error) {
-            // 完全禁用日志输出 - 用户不需要任何日志
+            // Silent - no log output
             return null;
           }
         });
@@ -289,7 +282,7 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
         const batchResults = await Promise.all(batchPromises);
         results.push(...batchResults.filter(doc => doc !== null));
 
-        // 添加小延迟避免API限流
+        // Small delay to avoid API rate limiting
         if (i + batchSize < documentIds.length) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -299,97 +292,33 @@ export function createDocumentOperations(client: SiyuanClient): DocumentOperatio
     },
 
     /**
-     * 批量读取笔记本内所有文档（优化版）
+     * Batch read all documents in notebook (legacy v1, kept for interface compat)
      */
     async batchReadAllDocuments(
-      notebookId: string, 
-      options: {
-        maxDepth?: number;
-        includeContent?: boolean;
-        batchSize?: number;
-        delay?: number;
-        maxConcurrency?: number;
-        memoryThreshold?: number;
-      } = {}
+      notebookId: string,
+      options: { maxDepth?: number; includeContent?: boolean } = {}
     ): Promise<any[]> {
-      const {
-        maxDepth = 10,
-        includeContent = true,
-        batchSize = 5,
-        delay = 100,
-        maxConcurrency = 3,
-        memoryThreshold = 100
-      } = options;
-
-      try {
-        // 获取笔记本的文档树
-        const docTree = await this.getDocTree(notebookId);
-        if (docTree.code !== 0) {
-          throw new Error(`获取文档树失败: ${docTree.msg}`);
+      const docTree = await this.getDocTree(notebookId);
+      if (docTree.code !== 0) return [];
+      const collectIds = (nodes: any[], depth = 0): string[] => {
+        if (depth >= (options.maxDepth ?? 10)) return [];
+        const ids: string[] = [];
+        for (const n of nodes || []) {
+          if (n.type === 'NodeDocument') ids.push(n.id);
+          if (n.children?.length) ids.push(...collectIds(n.children, depth + 1));
         }
-
-        // 递归收集所有文档ID
-        const collectDocumentIds = (nodes: any[], depth: number = 0): string[] => {
-          if (depth >= maxDepth) return [];
-          
-          const ids: string[] = [];
-          for (const node of nodes || []) {
-            if (node.type === 'NodeDocument') {
-              ids.push(node.id);
-            }
-            // 递归处理子节点
-            if (node.children && node.children.length > 0) {
-              ids.push(...collectDocumentIds(node.children, depth + 1));
-            }
-          }
-          return ids;
-        };
-
-        const documentIds = collectDocumentIds(docTree.data);
-        
-        if (!includeContent) {
-          return documentIds.map(id => ({ id, notebookId }));
-        }
-
-        // 使用批量优化器处理文档读取
-        const batchOptimizer = createBatchOptimizer({
-          batchSize,
-          delay,
-          maxConcurrency,
-          memoryThreshold,
-          retryAttempts: 3,
-          timeoutMs: 30000
-        });
-
-        // 定义文档处理函数
-        const documentProcessor = async (id: string) => {
+        return ids;
+      };
+      const ids = collectIds(docTree.data);
+      if (!options.includeContent) return ids.map(id => ({ id, notebookId }));
+      const results: any[] = [];
+      for (const id of ids) {
+        try {
           const doc = await this.getDoc(id);
-          if (doc.code === 0) {
-            return {
-              id,
-              notebookId,
-              title: doc.data.title || '无标题',
-              content: doc.data.kramdown || doc.data.markdown || '',
-              created: doc.data.created,
-              updated: doc.data.updated,
-              contentLength: (doc.data.kramdown || doc.data.markdown || '').length
-            };
-          }
-          throw new Error(`文档读取失败: ${doc.msg || '未知错误'}`);
-        };
-
-        // 执行批量处理
-        const batchResult = await batchOptimizer.executeBatch(documentIds, documentProcessor);
-
-        // 记录处理统计
-        // 完全禁用日志输出 - 用户不需要任何日志
-        // 完全禁用日志输出 - 用户不需要任何日志
-        // 完全禁用日志输出 - 用户不需要任何日志\n`);
-
-        return batchResult.success;
-      } catch (error: any) {
-        throw new Error(`批量读取文档失败: ${error.message}`);
+          if (doc.code === 0) results.push({ id, notebookId, ...doc.data });
+        } catch {}
       }
+      return results;
     }
   };
 }

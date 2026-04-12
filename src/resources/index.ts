@@ -270,7 +270,7 @@ Multiple database entries:
   },
 };
 
-// MCP资源类型定义
+// MCP resource type definitions
 export interface MCPResource {
   uri: string;
   name: string;
@@ -279,7 +279,7 @@ export interface MCPResource {
   metadata?: Record<string, any>;
 }
 
-// 资源过滤器
+// Resource filter
 export interface ResourceFilter {
   type?: 'document' | 'block' | 'notebook';
   notebook?: string;
@@ -294,7 +294,7 @@ export interface ResourceFilter {
 
 
 
-// 资源发现结果
+// Resource discovery result
 export interface ResourceDiscoveryResult {
   resources: MCPResource[];
   total: number;
@@ -313,7 +313,7 @@ export class ResourceDirectory {
     });
   }
 
-  // 发现所有可用资源
+  // Discover all available resources
   async discoverResources(
     filter: ResourceFilter = {},
     pagination: PaginationOptions = {}
@@ -338,7 +338,7 @@ export class ResourceDirectory {
         }
       }
 
-      // 根据过滤器类型获取不同的资源
+      // Get resources by filter type
       if (!filter.type || filter.type === 'notebook') {
         const notebooks = await this.discoverNotebooks(filter);
         resources.push(...notebooks);
@@ -357,10 +357,10 @@ export class ResourceDirectory {
         total += blocks.total;
       }
 
-      // 排序
+      // Sort
       const sortedResources = this.sortResources(resources, sortBy, sortOrder);
       
-      // 分页
+      // Paginate
       const paginatedResources = sortedResources.slice(offset, offset + limit);
       
       return {
@@ -376,12 +376,12 @@ export class ResourceDirectory {
     }
   }
 
-  // 发现笔记本资源
+  // Discover notebook resources
   private async discoverNotebooks(filter: ResourceFilter): Promise<MCPResource[]> {
     try {
       const response = await this.siyuanClient.request('/api/notebook/lsNotebooks', {});
       
-      // 处理不同的响应格式
+      // Handle different response formats
       let notebooks = [];
       if (response && response.data && response.data.notebooks) {
         notebooks = response.data.notebooks;
@@ -412,7 +412,7 @@ export class ResourceDirectory {
     }
   }
 
-  // 发现文档资源
+  // Discover document resources
   private async discoverDocuments(
     filter: ResourceFilter,
     pagination: PaginationOptions
@@ -422,7 +422,7 @@ export class ResourceDirectory {
       let total = 0;
 
       if (filter.notebook) {
-        // 获取指定笔记本的文档
+        // Get docs for specified notebook
         const docsResponse = await this.siyuanClient.documents.listDocs(
           filter.notebook
         );
@@ -447,7 +447,7 @@ export class ResourceDirectory {
         }
         total = docs.length;
       } else {
-        // 获取所有笔记本的文档
+        // Get docs for all notebooks
         const notebooksResponse = await this.siyuanClient.request('/api/notebook/lsNotebooks', {});
         const notebooks = notebooksResponse.data?.notebooks || [];
         
@@ -484,7 +484,7 @@ export class ResourceDirectory {
     }
   }
 
-  // 发现块资源
+  // Discover block resources
   private async discoverBlocks(
     filter: ResourceFilter,
     pagination: PaginationOptions
@@ -494,7 +494,7 @@ export class ResourceDirectory {
       
       if (filter.query) {
         try {
-          // 使用搜索API查找块
+          // Use search API to find blocks
           const searchResponse = await this.siyuanClient.searchNotes(
             filter.query,
             pagination.limit || 20
@@ -523,7 +523,7 @@ export class ResourceDirectory {
           
           return { resources, total: searchResults.length };
         } catch (error) {
-          // 完全禁用日志输出 - 用户不需要任何日志
+          // Silent - no log output
           return { resources: [], total: 0 };
         }
       }
@@ -559,7 +559,7 @@ export class ResourceDirectory {
     return resources;
   }
 
-  // 获取单个资源内容
+  // Get single resource content
   async getResourceContent(uri: string): Promise<string> {
     try {
       const { type, id } = this.parseResourceURI(uri);
@@ -578,9 +578,9 @@ export class ResourceDirectory {
           return JSON.stringify(notebook, null, 2);
           
         case 'document':
-          // 获取文档的所有块
+          // Get all blocks in document
           const docBlocks = await this.siyuanClient.request('/api/filetree/getDoc', { id });
-          // 处理思源API响应格式
+          // Handle SiYuan API response format
           const data = docBlocks?.data || docBlocks;
           return JSON.stringify(data, null, 2);
           
@@ -597,7 +597,7 @@ export class ResourceDirectory {
     }
   }
 
-  // 搜索资源
+  // Search resources
   async searchResources(
     query: string,
     filter: ResourceFilter = {},
@@ -607,7 +607,7 @@ export class ResourceDirectory {
     return await this.discoverResources(searchFilter, pagination);
   }
 
-  // 获取资源元数据
+  // Get resource metadata
   async getResourceMetadata(uri: string): Promise<Record<string, any>> {
     try {
       const { type, id } = this.parseResourceURI(uri);
@@ -628,7 +628,7 @@ export class ResourceDirectory {
           
         case 'document':
           const docInfo = await this.siyuanClient.request('/api/filetree/getDoc', { id });
-          // 处理思源API响应格式
+          // Handle SiYuan API response format
           return docInfo?.data || docInfo || {};
           
         case 'block':
@@ -644,7 +644,7 @@ export class ResourceDirectory {
     }
   }
 
-  // 解析资源URI
+  // Parse resource URI
   private parseResourceURI(uri: string): { type: string; id: string } {
     const match = uri.match(/^siyuan:\/\/(\w+)\/?(.*)$/);
     if (!match) {
@@ -653,7 +653,7 @@ export class ResourceDirectory {
     return { type: match[1], id: match[2] || '' };
   }
 
-  // 排序资源
+  // Sort resources
   private sortResources(
     resources: MCPResource[],
     sortBy: string,
@@ -684,7 +684,7 @@ export class ResourceDirectory {
     });
   }
 
-  // 获取资源统计信息
+  // Get resource stats
   async getResourceStats(): Promise<{
     notebooks: number;
     documents: number;
@@ -707,7 +707,7 @@ export class ResourceDirectory {
       return {
         notebooks: notebooks.length,
         documents,
-        blocks: 0, // 块数量需要通过搜索API获取，这里暂时设为0
+        blocks: 0, // Block count requires search API, set to 0 for now
         totalSize
       };
     } catch (error) {
@@ -717,5 +717,5 @@ export class ResourceDirectory {
   }
 }
 
-// 创建默认的资源目录实例
+// Create default resource directory instance
 export const resourceDirectory = new ResourceDirectory();

@@ -1,11 +1,11 @@
 import { SiyuanClient } from './index';
 
 export interface AssetOperations {
-  // 资源上传
+  // Asset upload
   uploadAsset(file: Buffer | Uint8Array, filename: string, assetsDirPath?: string): Promise<any>;
   uploadCloud(file: Buffer | Uint8Array, filename: string): Promise<any>;
   
-  // 资源管理
+  // Asset management
   resolveAssetPath(path: string): Promise<any>;
   getDocAssets(id: string): Promise<any>;
   getDocImageAssets(id: string): Promise<any>;
@@ -15,16 +15,16 @@ export interface AssetOperations {
   removeUnusedAssets(): Promise<any>;
   renameAsset(oldPath: string, newPath: string): Promise<any>;
   
-  // 文件注释
+  // File annotations
   setFileAnnotation(path: string, annotation: string): Promise<any>;
   getFileAnnotation(path: string): Promise<any>;
   
-  // OCR 功能
+  // OCR features
   getImageOCRText(path: string): Promise<any>;
   setImageOCRText(path: string, text: string): Promise<any>;
   ocr(path: string): Promise<any>;
   
-  // 资源统计
+  // Asset statistics
   statAsset(path: string): Promise<any>;
   fullReindexAssetContent(): Promise<any>;
 }
@@ -32,12 +32,12 @@ export interface AssetOperations {
 export function createAssetOperations(client: SiyuanClient): AssetOperations {
   return {
     async uploadAsset(file: Buffer | Uint8Array, filename: string, assetsDirPath = '/assets/') {
-      // 注意：实际的文件上传需要在客户端实现 FormData
-      // 这里提供基础的上传接口结构
+      // Note: actual file upload requires FormData on the client side
+      // This provides the basic upload interface structure
       return await client.request('/api/asset/upload', {
         filename,
         assetsDirPath,
-        // 实际使用时需要处理文件数据
+        // Actual usage requires handling file data
         note: 'File upload requires FormData implementation'
       });
     },

@@ -1,6 +1,6 @@
 /**
- * 思源笔记客户端
- * 统一的API客户端，整合所有思源笔记API调用
+ * SiYuan client
+ * Unified API client for all SiYuan API calls
  * 
  * @author CodeBuddy
  * @since 1.0.0
@@ -30,18 +30,18 @@ class SiyuanClient {
   }
 
   /**
-   * 执行SQL查询
-   * @param params - SQL查询参数
-   * @returns 查询结果
+   * Execute SQL query
+   * @param params - SQL query parameters
+   * @returns Query result
    */
   async sql(params: { stmt: string }): Promise<SiyuanResponse> {
     return this.request('/api/query/sql', params);
   }
 
   /**
-   * 根据ID获取块
-   * @param params - 查询参数
-   * @returns 块信息
+   * Get block by ID
+   * @param params - Query parameters
+   * @returns Block info
    */
   async getBlockByID(params: { id: string }): Promise<SiyuanResponse> {
     const blockOps = createBlockOperations(this as any);
@@ -49,9 +49,9 @@ class SiyuanClient {
   }
 
   /**
-   * 插入块
-   * @param params - 插入参数
-   * @returns 插入结果
+   * Insert block
+   * @param params - Insert parameters
+   * @returns Insert result
    */
   async insertBlock(params: {
     dataType: string;
@@ -64,9 +64,9 @@ class SiyuanClient {
   }
 
   /**
-   * 更新块
-   * @param params - 更新参数
-   * @returns 更新结果
+   * Update block
+   * @param params - Update parameters
+   * @returns Update result
    */
   async updateBlock(params: {
     id: string;
@@ -78,9 +78,9 @@ class SiyuanClient {
   }
 
   /**
-   * 删除块
-   * @param params - 删除参数
-   * @returns 删除结果
+   * Delete block
+   * @param params - Delete parameters
+   * @returns Delete result
    */
   async deleteBlock(params: { id: string }): Promise<SiyuanResponse> {
     const blockOps = createBlockOperations(this as any);
@@ -88,10 +88,10 @@ class SiyuanClient {
   }
 
   /**
-   * 通用请求方法
-   * @param endpoint - API端点
-   * @param data - 请求数据
-   * @returns 响应结果
+   * Generic request method
+   * @param endpoint - API endpoint
+   * @param data - Request data
+   * @returns Response result
    */
   private async request(endpoint: string, data: any): Promise<SiyuanResponse> {
     try {
@@ -110,7 +110,7 @@ class SiyuanClient {
 
       return await response.json();
     } catch (error) {
-      throw new Error(`请求失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      throw new Error(`Request failed: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
   }
 }

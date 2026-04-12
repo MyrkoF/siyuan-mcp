@@ -3,9 +3,9 @@ import logger from '../logger';
 export interface RetryConfig {
   maxRetries: number;
   backoffStrategy: 'linear' | 'exponential' | 'fixed';
-  baseDelay: number; // 基础延迟时间（毫秒）
-  maxDelay: number; // 最大延迟时间（毫秒）
-  retryableErrors: string[]; // 可重试的错误类型
+  baseDelay: number; // Base delay in ms
+  maxDelay: number; // Max delay in ms
+  retryableErrors: string[]; // Retryable error types
   onRetry?: (attempt: number, error: Error) => void;
 }
 
@@ -40,7 +40,7 @@ export class RetryManager {
   };
 
   /**
-   * 执行带重试的操作
+   * Execute operation with retry
    */
   async withRetry<T>(
     operation: () => Promise<T>,
@@ -57,7 +57,7 @@ export class RetryManager {
         
         if (attempt > 0) {
           this.stats.successfulRetries++;
-          logger.info(`操作在第${attempt + 1}次尝试后成功`);
+          logger.info(`Operation succeeded on attempt ${attempt + 1}`);
         }
         
         this.updateAverageAttempts();
@@ -66,20 +66,20 @@ export class RetryManager {
       } catch (error) {
         lastError = error as Error;
         
-        // 检查是否是可重试的错误
+        // Check if error is retryable
         if (!this.isRetryableError(lastError, finalConfig.retryableErrors)) {
-          logger.debug(`不可重试的错误: ${lastError.message}`);
+          logger.debug(`Non-retryable error: ${lastError.message}`);
           throw lastError;
         }
 
-        // 如果已达到最大重试次数
+        // If max retries reached
         if (attempt >= finalConfig.maxRetries) {
           this.stats.failedRetries++;
-          logger.error(`操作失败，已达到最大重试次数 ${finalConfig.maxRetries}`);
+          logger.error(`Operation failed after max retries: ${finalConfig.maxRetries}`);
           break;
         }
 
-        // 计算延迟时间
+        // Calculate delay
         const delay = this.calculateDelay(attempt, finalConfig);
         
         logger.warn({
@@ -87,14 +87,14 @@ export class RetryManager {
           maxRetries: finalConfig.maxRetries,
           delay,
           error: lastError.message
-        }, `操作失败，将在${delay}ms后重试`);
+        }, `Operation failed, retrying in ${delay}ms`);
 
-        // 调用重试回调
+        // Call retry callback
         if (finalConfig.onRetry) {
           finalConfig.onRetry(attempt + 1, lastError);
         }
 
-        // 等待延迟时间
+        // Wait for delay
         await this.delay(delay);
         attempt++;
       }
@@ -105,7 +105,7 @@ export class RetryManager {
   }
 
   /**
-   * 检查错误是否可重试
+   * Check if error is retryable
    */
   private isRetryableError(error: Error, retryableErrors: string[]): boolean {
     const errorMessage = error.message.toLowerCase();
@@ -120,7 +120,7 @@ export class RetryManager {
   }
 
   /**
-   * 计算延迟时间
+   * Calculate delay
    */
   private calculateDelay(attempt: number, config: RetryConfig): number {
     let delay: number;
@@ -138,23 +138,23 @@ export class RetryManager {
         break;
     }
 
-    // 添加随机抖动，避免雷群效应
+    // Add random jitter to avoid thundering herd
     const jitter = Math.random() * 0.1 * delay;
     delay += jitter;
 
-    // 确保不超过最大延迟时间
+    // Ensure delay does not exceed max
     return Math.min(delay, config.maxDelay);
   }
 
   /**
-   * 延迟函数
+   * Delay function
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
-   * 更新平均尝试次数
+   * Update average attempt count
    */
   private updateAverageAttempts(): void {
     const totalOperations = this.stats.successfulRetries + this.stats.failedRetries;
@@ -164,14 +164,14 @@ export class RetryManager {
   }
 
   /**
-   * 获取重试统计信息
+   * Get retry stats
    */
   getStats(): RetryStats {
     return { ...this.stats };
   }
 
   /**
-   * 重置统计信息
+   * Reset stats
    */
   resetStats(): void {
     this.stats = {
@@ -183,11 +183,11 @@ export class RetryManager {
   }
 }
 
-// 全局重试管理器实例
+// Global retry manager instance
 export const retryManager = new RetryManager();
 
 /**
- * 便捷的重试函数
+ * Convenience retry function
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,
