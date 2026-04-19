@@ -257,7 +257,7 @@ export const TOOLS: Tool[] = [
                     fieldId: { type: 'string', description: 'Field ID (from read_database)' },
                     type: {
                       type: 'string',
-                      enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone', 'mAsset'],
+                      enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone', 'mAsset', 'relation'],
                       description: 'Field type'
                     },
                     content: {
@@ -298,7 +298,7 @@ export const TOOLS: Tool[] = [
                     fieldId: { type: 'string', description: 'Field ID' },
                     type: {
                       type: 'string',
-                      enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone', 'mAsset'],
+                      enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone', 'mAsset', 'relation'],
                       description: 'Field type'
                     },
                     content: { description: 'New value' }
@@ -331,6 +331,153 @@ export const TOOLS: Tool[] = [
     }
   },
   {
+    name: 'list_views',
+    description: 'List database views and their current layout/group/filter/sort configuration.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' }
+      },
+      required: ['avId']
+    }
+  },
+  {
+    name: 'add_view',
+    description: 'Add a new table, kanban, or gallery view to a database.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' },
+        type: { type: 'string', enum: ['table', 'kanban', 'gallery'], description: 'View type' },
+        name: { type: 'string', description: 'View name' },
+        groupByFieldId: { type: 'string', description: 'Field ID to group by, typically for kanban' },
+        filters: { type: 'array', items: { type: 'object' }, description: 'Raw SiYuan view filters' },
+        sorts: { type: 'array', items: { type: 'object' }, description: 'Raw SiYuan view sorts' }
+      },
+      required: ['avId', 'type', 'name']
+    }
+  },
+  {
+    name: 'update_view',
+    description: 'Update an existing database view layout, name, grouping, filters, or sorts.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' },
+        viewId: { type: 'string', description: 'View ID' },
+        type: { type: 'string', enum: ['table', 'kanban', 'gallery'], description: 'New view type' },
+        name: { type: 'string', description: 'New view name' },
+        groupByFieldId: { type: 'string', description: 'Field ID to group by' },
+        filters: { type: 'array', items: { type: 'object' }, description: 'Raw SiYuan view filters' },
+        sorts: { type: 'array', items: { type: 'object' }, description: 'Raw SiYuan view sorts' }
+      },
+      required: ['avId', 'viewId']
+    }
+  },
+  {
+    name: 'delete_view',
+    description: 'Delete a database view by ID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' },
+        viewId: { type: 'string', description: 'View ID' }
+      },
+      required: ['avId', 'viewId']
+    }
+  },
+  {
+    name: 'bind_row_to_doc',
+    description: 'Convert an existing detached row into a document-backed row bound to an existing document.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' },
+        entryId: { type: 'string', description: 'Existing row entry ID' },
+        docId: { type: 'string', description: 'Existing document block ID' }
+      },
+      required: ['avId', 'entryId', 'docId']
+    }
+  },
+  {
+    name: 'create_doc_backed_row',
+    description: 'Create a new document and add it to the database as a document-backed row.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' },
+        notebookId: { type: 'string', description: 'Notebook ID where the document will be created' },
+        path: { type: 'string', description: 'Document path to create' },
+        title: { type: 'string', description: 'Document title' },
+        content: { type: 'string', description: 'Initial markdown body' },
+        values: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              fieldId: { type: 'string' },
+              type: {
+                type: 'string',
+                enum: ['text', 'number', 'checkbox', 'select', 'mSelect', 'date', 'url', 'email', 'phone', 'mAsset', 'relation']
+              },
+              content: {}
+            },
+            required: ['fieldId', 'type', 'content']
+          }
+        }
+      },
+      required: ['avId', 'notebookId', 'path', 'title']
+    }
+  },
+  {
+    name: 'list_select_options',
+    description: 'List the current options for a select or multi-select database field.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' },
+        fieldId: { type: 'string', description: 'Field ID' }
+      },
+      required: ['avId', 'fieldId']
+    }
+  },
+  {
+    name: 'set_select_options',
+    description: 'Set or update the available options for a select or multi-select database field.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        avId: { type: 'string', description: 'Database ID' },
+        fieldId: { type: 'string', description: 'Field ID' },
+        options: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Option name' },
+              color: { type: 'string', description: 'Option color' },
+              desc: { type: 'string', description: 'Option description' }
+            },
+            required: ['name']
+          }
+        }
+      },
+      required: ['avId', 'fieldId', 'options']
+    }
+  },
+  {
+    name: 'rename_notebook',
+    description: 'Rename a notebook by ID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebookId: { type: 'string', description: 'Notebook ID' },
+        name: { type: 'string', description: 'New notebook name' }
+      },
+      required: ['notebookId', 'name']
+    }
+  },
+  {
     name: 'manage_db_fields',
     description:
       'Add or remove fields (columns) in a database. ' +
@@ -347,8 +494,32 @@ export const TOOLS: Tool[] = [
         name: { type: 'string', description: 'Field name (required for add)' },
         type: {
           type: 'string',
-          enum: ['text', 'number', 'select', 'mSelect', 'date', 'checkbox', 'url', 'email', 'phone', 'mAsset'],
+          enum: ['text', 'number', 'select', 'mSelect', 'date', 'checkbox', 'url', 'email', 'phone', 'mAsset', 'relation', 'rollup'],
           description: 'Field type (required for add)'
+        },
+        relation: {
+          type: 'object',
+          properties: {
+            targetAvId: { type: 'string', description: 'Target database ID for relation fields' },
+            backRef: { type: 'boolean', description: 'Create the reverse relation field automatically' },
+            backRefName: { type: 'string', description: 'Name for the reverse relation field' }
+          },
+          required: ['targetAvId'],
+          description: 'Required when adding a relation field'
+        },
+        rollup: {
+          type: 'object',
+          properties: {
+            relationFieldId: { type: 'string', description: 'Relation field ID on this database' },
+            targetFieldId: { type: 'string', description: 'Target field ID on the related database' },
+            calc: {
+              type: 'string',
+              enum: ['count', 'countDistinct', 'sum', 'avg', 'min', 'max', 'empty', 'notEmpty', 'unique', 'checked', 'unchecked', 'percent'],
+              description: 'Rollup calculation type'
+            }
+          },
+          required: ['relationFieldId', 'targetFieldId'],
+          description: 'Required when adding a rollup field'
         },
         fieldId: { type: 'string', description: 'Field ID to remove (required for remove)' }
       },

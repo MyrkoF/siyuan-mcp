@@ -10,7 +10,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke:siyuan": "node scripts/siyuan-issue1-smoke.js"
   },
   "keywords": [
     "mcp",

@@ -11,7 +11,7 @@
  */
 
 import { SiyuanClient } from '../siyuanClient';
-import { parseColumns, parseRow, findColumn } from '../utils/avParser';
+import { parseCellValue, parseColumns, parseRow, findColumn } from '../utils/avParser';
 
 // ==================== Types publics ====================
 
@@ -19,6 +19,20 @@ export interface AVColumn {
   id: string;
   name: string;
   type: string;
+  options?: any[];
+  relation?: {
+    avID?: string;
+    isTwoWay?: boolean;
+    backKeyID?: string;
+  };
+  rollup?: {
+    relationKeyID?: string;
+    keyID?: string;
+    calc?: {
+      operator?: string;
+      result?: any;
+    };
+  };
 }
 
 export interface AVField {
@@ -26,6 +40,50 @@ export interface AVField {
   name: string;
   type: string;
   options?: any[];
+  relation?: {
+    avID?: string;
+    isTwoWay?: boolean;
+    backKeyID?: string;
+  };
+  rollup?: {
+    relationKeyID?: string;
+    keyID?: string;
+    calc?: {
+      operator?: string;
+      result?: any;
+    };
+  };
+}
+
+export interface AVRelationConfig {
+  targetAvId: string;
+  backRef?: boolean;
+  backRefName?: string;
+}
+
+export interface AVRollupConfig {
+  relationFieldId: string;
+  targetFieldId: string;
+  calc?: string;
+}
+
+export interface AVViewSummary {
+  id: string;
+  name: string;
+  type: string;
+  icon?: string;
+  desc?: string;
+  groupByFieldId?: string;
+  filters?: any[];
+  sorts?: any[];
+}
+
+export interface AVViewConfig {
+  name?: string;
+  type?: 'table' | 'kanban' | 'gallery';
+  groupByFieldId?: string;
+  filters?: any[];
+  sorts?: any[];
 }
 
 export interface AVRow {
@@ -263,14 +321,13 @@ export class AttributeViewService {
   ): Promise<AVRow | null> {
     if (!avId?.trim()) throw new Error('avId is required');
 
-    // Get current entries to identify the new one after creation
-    const before = await this.renderDatabase(avId);
-    const beforeIds = new Set(before.entries.map((r: AVRow) => r.id));
-    const pkField = before.fields.find((f: AVColumn) => f.type === 'block');
+    const beforeModel = await this.loadAttributeViewModel(avId);
+    const beforeIds = new Set(this.collectModelEntryIds(beforeModel));
+    const beforeFields = parseColumns((beforeModel?.keyValues ?? []).map((kv: any) => kv.key));
+    const pkField = beforeFields.find((f: AVColumn) => f.type === 'block');
     if (!pkField) throw new Error('Primary field (block type) not found in this database');
 
-    // Build the 2D cell array for this single row
-    const row = this.buildAppendRow(pkField.id, name, values, before.fields);
+    const row = this.buildAppendRow(pkField.id, name, values, beforeFields);
 
     const response = await this.client.request('/api/av/appendAttributeViewDetachedBlocksWithValues', {
       avID: avId.trim(),
@@ -281,9 +338,9 @@ export class AttributeViewService {
       throw new Error(`Failed to create entry: ${response?.msg ?? 'unknown error'}`);
     }
 
-    // Re-render to get the new entry with its kernel-assigned ID
-    const after = await this.renderDatabase(avId);
-    return after.entries.find((r: AVRow) => !beforeIds.has(r.id)) ?? null;
+    const afterModel = await this.loadAttributeViewModel(avId);
+    const createdId = this.collectModelEntryIds(afterModel).find(id => !beforeIds.has(id));
+    return createdId ? this.buildRowFromModel(afterModel, createdId) : null;
   }
 
   /**
@@ -488,8 +545,15 @@ export class AttributeViewService {
   async getEntry(avId: string, entryId: string): Promise<AVRow | null> {
     if (!avId?.trim()) throw new Error('avId is required');
     if (!entryId?.trim()) throw new Error('entryId is required');
+
     const db = await this.renderDatabase(avId);
-    return db.entries.find((r: AVRow) => r.id === entryId.trim()) ?? null;
+    const renderedRow = db.entries.find((r: AVRow) => r.id === entryId.trim());
+    if (renderedRow) {
+      return renderedRow;
+    }
+
+    const model = await this.loadAttributeViewModel(avId);
+    return this.buildRowFromModel(model, entryId.trim());
   }
 
   /**
@@ -504,14 +568,14 @@ export class AttributeViewService {
     if (!avId?.trim()) throw new Error('avId is required');
     if (!entries?.length) throw new Error('entries array must not be empty');
 
-    const before = await this.renderDatabase(avId);
-    const beforeIds = new Set(before.entries.map((r: AVRow) => r.id));
-    const pkField = before.fields.find((f: AVColumn) => f.type === 'block');
+    const beforeModel = await this.loadAttributeViewModel(avId);
+    const beforeIds = new Set(this.collectModelEntryIds(beforeModel));
+    const beforeFields = parseColumns((beforeModel?.keyValues ?? []).map((kv: any) => kv.key));
+    const pkField = beforeFields.find((f: AVColumn) => f.type === 'block');
     if (!pkField) throw new Error('Primary field (block type) not found in this database');
 
-    // Build 2D array: each element is an array of cells for one row
     const blocksValues = entries.map(entry =>
-      this.buildAppendRow(pkField.id, entry.name ?? '', entry.values ?? [], before.fields)
+      this.buildAppendRow(pkField.id, entry.name ?? '', entry.values ?? [], beforeFields)
     );
 
     const response = await this.client.request('/api/av/appendAttributeViewDetachedBlocksWithValues', {
@@ -523,8 +587,11 @@ export class AttributeViewService {
       throw new Error(`Failed to create entries: ${response?.msg ?? 'unknown error'}`);
     }
 
-    const after = await this.renderDatabase(avId);
-    return after.entries.filter((r: AVRow) => !beforeIds.has(r.id));
+    const afterModel = await this.loadAttributeViewModel(avId);
+    const createdIds = this.collectModelEntryIds(afterModel).filter(id => !beforeIds.has(id));
+    return createdIds
+      .map(id => this.buildRowFromModel(afterModel, id))
+      .filter((row): row is AVRow => row !== null);
   }
 
   /**
@@ -578,7 +645,9 @@ export class AttributeViewService {
       id: f.id,
       name: f.name,
       type: f.type,
-      options: (f as any).options ?? undefined
+      options: f.options ?? undefined,
+      relation: f.relation ?? undefined,
+      rollup: f.rollup ?? undefined
     }));
   }
 
@@ -600,20 +669,20 @@ export class AttributeViewService {
     if (!avId?.trim()) throw new Error('avId is required');
     if (!name?.trim()) throw new Error('name is required');
 
-    const WRITABLE_TYPES = new Set([
+    const CREATABLE_TYPES = new Set([
       'text','number','select','mSelect','date','checkbox',
-      'url','email','phone','mAsset'
+      'url','email','phone','mAsset','relation','rollup'
     ]);
-    const SYSTEM_TYPES = new Set(['relation','rollup','created','updated','lineNumber','template']);
+    const READ_ONLY_TYPES = new Set(['created','updated','lineNumber','template']);
 
     if (type === 'block') {
       throw new Error(`Field type "block" is the primary key and is auto-created. You cannot add a second one.`);
     }
-    if (SYSTEM_TYPES.has(type)) {
+    if (READ_ONLY_TYPES.has(type)) {
       throw new Error(`Field type "${type}" is system-managed and cannot be created via MCP.`);
     }
-    if (!WRITABLE_TYPES.has(type)) {
-      throw new Error(`Unknown field type: "${type}". Valid: ${[...WRITABLE_TYPES].join(', ')}`);
+    if (!CREATABLE_TYPES.has(type)) {
+      throw new Error(`Unknown field type: "${type}". Valid: ${[...CREATABLE_TYPES].join(', ')}`);
     }
 
     // Get current view column order to append the new field at the end.
@@ -709,6 +778,277 @@ export class AttributeViewService {
     }
   }
 
+  async createRelationField(avId: string, name: string, relation: AVRelationConfig): Promise<AVField> {
+    if (!relation?.targetAvId?.trim()) throw new Error('relation.targetAvId is required');
+
+    const field = await this.createField(avId, name, 'relation');
+    const backRelationKeyId = relation.backRef ? this.generateSiyuanId() : '';
+
+    await this.performTransactions([
+      {
+        action: 'updateAttrViewColRelation',
+        avID: avId.trim(),
+        id: relation.targetAvId.trim(),
+        keyID: field.id,
+        isTwoWay: Boolean(relation.backRef),
+        backRelationKeyID: backRelationKeyId,
+        name: relation.backRefName?.trim() || '',
+        format: name.trim()
+      }
+    ]);
+
+    return {
+      id: field.id,
+      name: name.trim(),
+      type: 'relation',
+      relation: {
+        avID: relation.targetAvId.trim(),
+        isTwoWay: Boolean(relation.backRef),
+        backKeyID: backRelationKeyId || undefined
+      }
+    };
+  }
+
+  async createRollupField(avId: string, name: string, rollup: AVRollupConfig): Promise<AVField> {
+    if (!rollup?.relationFieldId?.trim()) throw new Error('rollup.relationFieldId is required');
+    if (!rollup?.targetFieldId?.trim()) throw new Error('rollup.targetFieldId is required');
+
+    const field = await this.createField(avId, name, 'rollup');
+
+    await this.performTransactions([
+      {
+        action: 'updateAttrViewColRollup',
+        avID: avId.trim(),
+        id: field.id,
+        parentID: rollup.relationFieldId.trim(),
+        keyID: rollup.targetFieldId.trim(),
+        data: {
+          calc: {
+            operator: this.mapRollupCalcOperator(rollup.calc)
+          }
+        }
+      }
+    ]);
+
+    return {
+      id: field.id,
+      name: name.trim(),
+      type: 'rollup',
+      rollup: {
+        relationKeyID: rollup.relationFieldId.trim(),
+        keyID: rollup.targetFieldId.trim(),
+        calc: {
+          operator: this.mapRollupCalcOperator(rollup.calc)
+        }
+      }
+    };
+  }
+
+  async listViews(avId: string): Promise<AVViewSummary[]> {
+    const db = await this.renderDatabase(avId);
+    const raw = await this.client.request('/api/av/renderAttributeView', { id: avId.trim() });
+    const views = raw?.data?.views ?? [];
+    const currentView = raw?.data?.view ?? null;
+
+    return views.map((view: any) => {
+      const fullView = currentView && currentView.id === view.id ? currentView : null;
+      return {
+        id: view.id,
+        name: view.name,
+        type: view.type,
+        icon: view.icon ?? '',
+        desc: view.desc ?? '',
+        groupByFieldId: fullView?.group?.field ?? undefined,
+        filters: fullView?.filters ?? [],
+        sorts: fullView?.sorts ?? []
+      };
+    });
+  }
+
+  async addView(avId: string, config: Required<Pick<AVViewConfig, 'type'>> & AVViewConfig): Promise<AVViewSummary> {
+    const blockId = await this.resolveDatabaseBlockId(avId);
+    const viewId = this.generateSiyuanId();
+
+    await this.performTransactions([
+      {
+        action: 'addAttrViewView',
+        avID: avId.trim(),
+        id: viewId,
+        blockID: blockId,
+        layout: config.type
+      }
+    ]);
+
+    const ops: any[] = [];
+    if (config.name?.trim()) {
+      ops.push({ action: 'setAttrViewViewName', avID: avId.trim(), id: viewId, data: config.name.trim() });
+    }
+    if (config.filters) {
+      ops.push({ action: 'setAttrViewFilters', avID: avId.trim(), blockID: blockId, data: config.filters });
+    }
+    if (config.sorts) {
+      ops.push({ action: 'setAttrViewSorts', avID: avId.trim(), blockID: blockId, data: config.sorts });
+    }
+    if (config.groupByFieldId && config.type === 'kanban') {
+      ops.push({
+        action: 'setAttrViewGroup',
+        avID: avId.trim(),
+        blockID: blockId,
+        data: { field: config.groupByFieldId.trim() }
+      });
+    }
+
+    if (ops.length) {
+      await this.performTransactions(ops);
+    }
+
+    const views = await this.listViews(avId);
+    const created = views.find(view => view.id === viewId);
+    if (!created) throw new Error(`Failed to find created view ${viewId}`);
+    return created;
+  }
+
+  async updateView(avId: string, viewId: string, config: AVViewConfig): Promise<AVViewSummary> {
+    const blockId = await this.resolveDatabaseBlockId(avId);
+    const viewBlockId = await this.resolveViewBlockId(avId, viewId, blockId);
+    const ops: any[] = [];
+
+    if (config.type) {
+      ops.push({
+        action: 'changeAttrViewLayout',
+        avID: avId.trim(),
+        blockID: viewBlockId,
+        layout: config.type
+      });
+    }
+    if (config.name?.trim()) {
+      ops.push({ action: 'setAttrViewViewName', avID: avId.trim(), id: viewId.trim(), data: config.name.trim() });
+    }
+    if (config.filters) {
+      ops.push({ action: 'setAttrViewFilters', avID: avId.trim(), blockID: viewBlockId, data: config.filters });
+    }
+    if (config.sorts) {
+      ops.push({ action: 'setAttrViewSorts', avID: avId.trim(), blockID: viewBlockId, data: config.sorts });
+    }
+    if (config.groupByFieldId) {
+      ops.push({
+        action: 'setAttrViewGroup',
+        avID: avId.trim(),
+        blockID: viewBlockId,
+        data: { field: config.groupByFieldId.trim() }
+      });
+    }
+
+    if (!ops.length) throw new Error('No view changes provided');
+    await this.performTransactions(ops);
+
+    const views = await this.listViews(avId);
+    const updated = views.find(view => view.id === viewId.trim());
+    if (!updated) throw new Error(`Failed to find updated view ${viewId}`);
+    return updated;
+  }
+
+  async deleteView(avId: string, viewId: string): Promise<void> {
+    const blockId = await this.resolveViewBlockId(avId, viewId);
+    await this.performTransactions([
+      {
+        action: 'removeAttrViewView',
+        avID: avId.trim(),
+        blockID: blockId
+      }
+    ]);
+  }
+
+  async listSelectOptions(avId: string, fieldId: string): Promise<any[]> {
+    const fields = await this.listFields(avId);
+    const field = fields.find(f => f.id === fieldId.trim());
+    if (!field) throw new Error(`Field "${fieldId}" not found in database`);
+    return field.options ?? [];
+  }
+
+  async setSelectOptions(avId: string, fieldId: string, options: Array<{ name: string; color?: string; desc?: string }>): Promise<any[]> {
+    await this.performTransactions([
+      {
+        action: 'updateAttrViewColOptions',
+        avID: avId.trim(),
+        id: fieldId.trim(),
+        data: options.map(option => ({
+          name: option.name,
+          color: option.color ?? '',
+          desc: option.desc ?? ''
+        }))
+      }
+    ]);
+
+    return this.listSelectOptions(avId, fieldId);
+  }
+
+  async bindRowToDoc(avId: string, entryId: string, docId: string): Promise<AVRow | null> {
+    if (!avId?.trim()) throw new Error('avId is required');
+    if (!entryId?.trim()) throw new Error('entryId is required');
+    if (!docId?.trim()) throw new Error('docId is required');
+
+    const response = await this.client.request('/api/av/batchReplaceAttributeViewBlocks', {
+      avID: avId.trim(),
+      isDetached: false,
+      oldNew: [{ [entryId.trim()]: docId.trim() }]
+    });
+
+    if (!response || response.code !== 0) {
+      throw new Error(`Failed to bind row to document: ${response?.msg ?? 'unknown error'}`);
+    }
+
+    return this.getEntry(avId, entryId);
+  }
+
+  async createDocBackedRow(
+    avId: string,
+    notebookId: string,
+    path: string,
+    title: string,
+    content: string = '',
+    values: AVCreateRowValue[] = []
+  ): Promise<AVRow | null> {
+    const docResp = await this.client.request('/api/filetree/createDocWithMd', {
+      notebook: notebookId.trim(),
+      path,
+      markdown: content
+    });
+
+    if (!docResp || docResp.code !== 0 || !docResp.data) {
+      throw new Error(`Failed to create document-backed row document: ${docResp?.msg ?? 'unknown error'}`);
+    }
+
+    const docId = typeof docResp.data === 'string' ? docResp.data : docResp.data.id;
+    const blockId = await this.resolveDatabaseBlockId(avId);
+
+    const addResp = await this.client.request('/api/av/addAttributeViewBlocks', {
+      avID: avId.trim(),
+      blockID: blockId,
+      srcs: [{ id: docId, content: title.trim(), isDetached: false }]
+    });
+
+    if (!addResp || addResp.code !== 0) {
+      throw new Error(`Failed to create document-backed row: ${addResp?.msg ?? 'unknown error'}`);
+    }
+
+    const itemMapResp = await this.client.request('/api/av/getAttributeViewItemIDsByBoundIDs', {
+      avID: avId.trim(),
+      blockIDs: [docId]
+    });
+
+    const entryId = itemMapResp?.data?.[docId] ?? null;
+    if (!entryId) {
+      throw new Error('Document-backed row was created, but entry ID could not be resolved');
+    }
+
+    if (values.length) {
+      await this.bulkUpdateEntries(avId.trim(), [{ entryId, changes: values }]);
+    }
+
+    return this.getEntry(avId.trim(), entryId);
+  }
+
   // ==================== Helpers privés ====================
 
   /**
@@ -727,6 +1067,132 @@ export class AttributeViewService {
       chars[Math.floor(Math.random() * chars.length)]
     ).join('');
     return `${ts}-${suffix}`;
+  }
+
+  private async performTransactions(operations: any[]): Promise<any> {
+    const response = await this.client.request('/api/transactions', {
+      transactions: [
+        {
+          doOperations: operations,
+          undoOperations: []
+        }
+      ],
+      reqId: Date.now()
+    });
+
+    if (!response || response.code !== 0) {
+      throw new Error(`Transaction failed: ${response?.msg ?? 'unknown error'}`);
+    }
+
+    return response.data;
+  }
+
+  private async resolveDatabaseBlockId(avId: string): Promise<string> {
+    const response = await this.client.request('/api/av/getMirrorDatabaseBlocks', {
+      avID: avId.trim()
+    });
+
+    const refDefs = response?.data?.refDefs ?? [];
+    const first = refDefs[0];
+    if (!first?.refID) {
+      throw new Error(`Could not resolve database block ID for AV ${avId}`);
+    }
+    return first.refID;
+  }
+
+  private async resolveViewBlockId(avId: string, viewId: string, fallbackBlockId?: string): Promise<string> {
+    const blockId = fallbackBlockId ?? await this.resolveDatabaseBlockId(avId);
+    const raw = await this.client.request('/api/av/renderAttributeView', {
+      id: avId.trim(),
+      blockID: blockId
+    });
+
+    const currentViewId = raw?.data?.viewID ?? raw?.data?.view?.id;
+    if (currentViewId === viewId.trim()) {
+      return blockId;
+    }
+
+    await this.performTransactions([
+      {
+        action: 'setAttrViewBlockView',
+        avID: avId.trim(),
+        blockID: blockId,
+        id: viewId.trim()
+      }
+    ]);
+
+    return blockId;
+  }
+
+  private mapRollupCalcOperator(calc?: string): string {
+    switch ((calc ?? 'none').trim()) {
+      case 'count':
+        return 'CountAll';
+      case 'countDistinct':
+        return 'CountUniqueValues';
+      case 'sum':
+        return 'Sum';
+      case 'avg':
+        return 'Average';
+      case 'min':
+        return 'Min';
+      case 'max':
+        return 'Max';
+      case 'empty':
+        return 'CountEmpty';
+      case 'notEmpty':
+        return 'CountNotEmpty';
+      case 'unique':
+        return 'UniqueValues';
+      case 'checked':
+        return 'Checked';
+      case 'unchecked':
+        return 'Unchecked';
+      case 'percent':
+        return 'PercentNotEmpty';
+      default:
+        return 'None';
+    }
+  }
+
+  private async loadAttributeViewModel(avId: string): Promise<any> {
+    const avHttpPath = `/data/storage/av/${avId.trim()}.json`;
+    const model = await this.client.fileGet(avHttpPath);
+    if (!model || typeof model !== 'object') {
+      throw new Error(`Database not found: ${avId}`);
+    }
+    return model;
+  }
+
+  private collectModelEntryIds(model: any): string[] {
+    const blockKeyValues = (model?.keyValues ?? []).find((kv: any) => kv?.key?.type === 'block');
+    const ids = (blockKeyValues?.values ?? []).map((value: any) => value?.blockID).filter(Boolean);
+    return Array.from(new Set(ids));
+  }
+
+  private buildRowFromModel(model: any, entryId: string): AVRow | null {
+    const keyValues: any[] = model?.keyValues ?? [];
+    if (!keyValues.length) {
+      return null;
+    }
+
+    const columns = parseColumns(keyValues.map((kv: any) => kv.key));
+    const cells: Record<string, any> = {};
+
+    for (const kv of keyValues) {
+      const value = (kv?.values ?? []).find((item: any) => item?.blockID === entryId);
+      if (!value || !kv?.key?.id) {
+        continue;
+      }
+      const colId = kv.key.id;
+      const parsed = parseCellValue({ value });
+      cells[colId] = parsed;
+      if (kv.key.name && kv.key.name !== colId) {
+        cells[kv.key.name] = parsed;
+      }
+    }
+
+    return Object.keys(cells).length ? { id: entryId, cells } : null;
   }
 
   /**
@@ -765,13 +1231,20 @@ export class AttributeViewService {
           }))
         };
       }
+      case 'relation': {
+        const items = Array.isArray(v.content) ? v.content : [v.content];
+        return {
+          relation: {
+            blockIDs: items.map((item: any) => String(item))
+          }
+        };
+      }
       // System-managed / computed types — not writable via MCP
       case 'created':
       case 'updated':
       case 'lineNumber':
       case 'template':
       case 'rollup':
-      case 'relation':
         throw new Error(
           `Field type "${v.type}" is system-managed or computed — cannot write a value manually.`
         );
@@ -872,8 +1345,11 @@ export class AttributeViewService {
     }
 
     const view = data.view ?? data;
-    const rawColumns: any[] = view.columns ?? data.columns ?? [];
-    const rawRows: any[]    = view.rows    ?? data.rows    ?? [];
+    const rawColumns: any[] = view.columns ?? view.fields ?? data.columns ?? data.fields ?? [];
+    const groupedRows: any[] = Array.isArray(view.groups)
+      ? view.groups.flatMap((group: any) => group?.rows ?? group?.cards ?? [])
+      : [];
+    const rawRows: any[] = view.rows ?? view.cards ?? groupedRows ?? data.rows ?? data.cards ?? [];
 
     const columns = parseColumns(rawColumns);
 

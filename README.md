@@ -12,31 +12,49 @@ v2 reduces the tool surface from 70 tools to **17**, because LLMs perform better
 
 ---
 
-## 17 Tools
+## Tool Surface
 
-| # | Tool | What it does |
-|---|------|-------------|
-| 1 | `siyuan_sql` | Run any SQL query on SiYuan's SQLite — replaces 15+ read tools (search, tags, backlinks, blocks, docs) |
-| 2 | `read_database` | Read an AV database (fields + entries), list all databases, filter entries, or get a single entry |
-| 3 | `workspace_map` | Get all notebook IDs, document tree (2 levels), and database IDs in one call |
-| 4 | `create_document` | Create a document or subdocument (nested path: `/Parent/Child`) |
-| 5 | `update_document` | Rename, replace content, and/or move a document |
-| 6 | `delete_document` | Delete a document (with cascade + dryRun support) |
-| 7 | `insert_block` | Insert a block (markdown, heading, list, code, etc.) |
-| 8 | `update_block` | Update a block's content |
-| 9 | `batch_block_ops` | Batch insert/update/delete blocks in one call |
-| 10 | `create_database` | Create an AV database (standalone or embedded in a document) |
-| 11 | `write_db_rows` | Create one or more entries in a database |
-| 12 | `update_db_cells` | Update cells across one or more entries |
-| 13 | `delete_db_rows` | Delete entries from a database |
-| 14 | `manage_db_fields` | Add or remove fields (columns) in a database |
-| 15 | `set_block_attrs` | Set custom attributes on any block |
-| 16 | `upload_asset` | Upload a file (base64) to the workspace |
-| 17 | `list_notebooks` | List notebooks (optionally create one) |
+### Core tools
 
-**Supported AV field types (read/write):** `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `mAsset`
+| Tool | What it does |
+|------|-------------|
+| `siyuan_sql` | Run SQL reads against SiYuan's SQLite for blocks, docs, tags, backlinks, and search |
+| `read_database` | Read an AV database, list databases, filter entries, or fetch a single entry |
+| `workspace_map` | Get all notebook IDs, document tree (2 levels), and database IDs in one call |
+| `create_document` | Create a document or subdocument (nested path: `/Parent/Child`) |
+| `update_document` | Rename, replace content, and/or move a document |
+| `delete_document` | Delete a document (with cascade + dryRun support) |
+| `insert_block` | Insert a block (markdown, heading, list, code, etc.) |
+| `update_block` | Update a block's content |
+| `batch_block_ops` | Batch insert/update/delete blocks in one call |
+| `create_database` | Create an AV database (standalone or embedded in a document) |
+| `write_db_rows` | Create one or more entries in a database |
+| `update_db_cells` | Update cells across one or more entries |
+| `delete_db_rows` | Delete entries from a database |
+| `manage_db_fields` | Add or remove fields (columns) in a database |
+| `set_block_attrs` | Set custom attributes on any block |
+| `upload_asset` | Upload a file (base64) to the workspace |
+| `list_notebooks` | List notebooks (optionally create one) |
 
-**System fields (read-only):** `created`, `updated`, `lineNumber`, `template`, `rollup`, `relation`
+### New database automation tools
+
+| Tool | What it does |
+|------|-------------|
+| `list_views` | List database views with current layout, grouping, filters, and sorts |
+| `add_view` | Add a table, kanban, or gallery view |
+| `update_view` | Change a view's layout, name, grouping, filters, or sorts |
+| `delete_view` | Remove a database view |
+| `bind_row_to_doc` | Convert an existing detached row into a document-backed row |
+| `create_doc_backed_row` | Create a document and add it as a document-backed database row |
+| `list_select_options` | List the current options for a select/multi-select field |
+| `set_select_options` | Define or update the options for a select/multi-select field |
+| `rename_notebook` | Rename a notebook by ID |
+
+**Supported AV field types (create/write):** `text`, `number`, `checkbox`, `select`, `mSelect`, `date`, `url`, `email`, `phone`, `mAsset`, `relation`
+
+**Supported AV field types (create/configure):** `relation`, `rollup`
+
+**Read-only/system-computed field types:** `created`, `updated`, `lineNumber`, `template`
 
 ---
 
@@ -180,6 +198,28 @@ The server exposes static guides as MCP resources:
 Read them in your MCP client to get detailed usage guidance.
 
 ---
+
+## Consumer smoke test
+
+After building, you can validate the full issue-#1 database automation flow against a live SiYuan instance:
+
+```bash
+SIYUAN_API_TOKEN=your-token-here npm run smoke:siyuan
+```
+
+The smoke test creates a temporary notebook, exercises:
+- relation field creation with back-reference
+- rollup field creation and readback
+- relation cell writes
+- view add/update
+- select option management
+- detached row → document binding
+- document-backed row creation
+- notebook rename
+
+Then it removes the temporary notebook.
+
+Tested live against SiYuan `3.6.4`.
 
 ## Development
 
