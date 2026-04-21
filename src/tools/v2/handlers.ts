@@ -59,6 +59,24 @@ export async function handleToolCall(name: string, args: any): Promise<StandardR
       return handleUpdateDbCells(args);
     case 'delete_db_rows':
       return handleDeleteDbRows(args);
+    case 'list_views':
+      return handleListViews(args);
+    case 'add_view':
+      return handleAddView(args);
+    case 'update_view':
+      return handleUpdateView(args);
+    case 'delete_view':
+      return handleDeleteView(args);
+    case 'bind_row_to_doc':
+      return handleBindRowToDoc(args);
+    case 'create_doc_backed_row':
+      return handleCreateDocBackedRow(args);
+    case 'list_select_options':
+      return handleListSelectOptions(args);
+    case 'set_select_options':
+      return handleSetSelectOptions(args);
+    case 'rename_notebook':
+      return handleRenameNotebook(args);
     case 'manage_db_fields':
       return handleManageDbFields(args);
 
@@ -328,6 +346,73 @@ async function handleDeleteDbRows(args: any): Promise<StandardResponse> {
   });
 }
 
+async function handleListViews(args: any): Promise<StandardResponse> {
+  const views = await avService.listViews(args.avId);
+  return createStandardResponse(true, `${views.length} view(s) found`, views);
+}
+
+async function handleAddView(args: any): Promise<StandardResponse> {
+  const view = await avService.addView(args.avId, args);
+  return createStandardResponse(true, `View "${view.name}" added`, view);
+}
+
+async function handleUpdateView(args: any): Promise<StandardResponse> {
+  const view = await avService.updateView(args.avId, args.viewId, args);
+  return createStandardResponse(true, `View "${view.name}" updated`, view);
+}
+
+async function handleDeleteView(args: any): Promise<StandardResponse> {
+  await avService.deleteView(args.avId, args.viewId);
+  return createStandardResponse(true, 'View deleted', { avId: args.avId, viewId: args.viewId });
+}
+
+async function handleBindRowToDoc(args: any): Promise<StandardResponse> {
+  const row = await avService.bindRowToDoc(args.avId, args.entryId, args.docId);
+  return createStandardResponse(true, 'Row bound to document', row);
+}
+
+async function handleCreateDocBackedRow(args: any): Promise<StandardResponse> {
+  const row = await avService.createDocBackedRow(
+    args.avId,
+    args.notebookId,
+    args.path,
+    args.title,
+    args.content || '',
+    args.values || []
+  );
+  return createStandardResponse(true, 'Document-backed row created', row);
+}
+
+async function handleListSelectOptions(args: any): Promise<StandardResponse> {
+  const options = await avService.listSelectOptions(args.avId, args.fieldId);
+  return createStandardResponse(true, `${options.length} option(s) found`, options);
+}
+
+async function handleSetSelectOptions(args: any): Promise<StandardResponse> {
+  const options = await avService.setSelectOptions(args.avId, args.fieldId, args.options);
+  return createStandardResponse(true, `${options.length} option(s) set`, options);
+}
+
+async function handleRenameNotebook(args: any): Promise<StandardResponse> {
+  if (!args.notebookId?.trim() || !args.name?.trim()) {
+    return createStandardResponse(false, 'notebookId and name required', null, 'Provide notebookId and name');
+  }
+
+  const resp = await client.request('/api/notebook/renameNotebook', {
+    notebook: args.notebookId.trim(),
+    name: args.name.trim()
+  });
+
+  if (!resp || resp.code !== 0) {
+    return createStandardResponse(false, 'Failed to rename notebook', null, resp?.msg ?? 'Unknown error');
+  }
+
+  return createStandardResponse(true, 'Notebook renamed', {
+    notebookId: args.notebookId.trim(),
+    name: args.name.trim()
+  });
+}
+
 async function handleManageDbFields(args: any): Promise<StandardResponse> {
   if (!args.avId?.trim()) {
     return createStandardResponse(false, 'Database ID required', null, 'avId is missing');
@@ -337,6 +422,20 @@ async function handleManageDbFields(args: any): Promise<StandardResponse> {
     case 'add': {
       if (!args.name?.trim() || !args.type?.trim()) {
         return createStandardResponse(false, 'name and type required for add', null, 'Provide name and type');
+      }
+      if (args.type === 'relation') {
+        if (!args.relation?.targetAvId?.trim()) {
+          return createStandardResponse(false, 'relation.targetAvId required', null, 'Provide relation.targetAvId for relation fields');
+        }
+        const field = await avService.createRelationField(args.avId, args.name, args.relation);
+        return createStandardResponse(true, `Field "${field.name}" added`, field);
+      }
+      if (args.type === 'rollup') {
+        if (!args.rollup?.relationFieldId?.trim() || !args.rollup?.targetFieldId?.trim()) {
+          return createStandardResponse(false, 'rollup config required', null, 'Provide rollup.relationFieldId and rollup.targetFieldId for rollup fields');
+        }
+        const field = await avService.createRollupField(args.avId, args.name, args.rollup);
+        return createStandardResponse(true, `Field "${field.name}" added`, field);
       }
       const field = await avService.createField(args.avId, args.name, args.type);
       return createStandardResponse(true, `Field "${field.name}" added`, field);

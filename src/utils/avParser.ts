@@ -56,8 +56,13 @@ export function parseCellValue(cell: any): any {
     case 'updated':
       return v[v.type]?.content ?? null;
 
-    case 'rollup':
-      return v.rollup?.content ?? null;
+    case 'rollup': {
+      const contents = v.rollup?.contents ?? [];
+      if (contents.length === 1 && contents[0]?.type === 'number') {
+        return contents[0]?.number?.content ?? null;
+      }
+      return contents;
+    }
 
     case 'template':
       // Template column: computed read-only string
@@ -115,13 +120,16 @@ export function findColumn(
 /**
  * Convertit une liste brute de colonnes SiYuan en format normalisé.
  */
-export function parseColumns(rawColumns: any[]): Array<{ id: string; name: string; type: string }> {
+export function parseColumns(rawColumns: any[]): Array<{ id: string; name: string; type: string; options?: any[]; relation?: any; rollup?: any }> {
   return (rawColumns ?? [])
     .filter((col: any) => col?.id)
     .map((col: any) => ({
       id: col.id,
       name: col.name ?? col.id,
-      type: col.type ?? 'text'
+      type: col.type ?? 'text',
+      options: col.options ?? undefined,
+      relation: col.relation ?? undefined,
+      rollup: col.rollup ?? undefined
     }));
 }
 
@@ -131,7 +139,7 @@ export function parseColumns(rawColumns: any[]): Array<{ id: string; name: strin
  */
 export function parseRow(
   row: any,
-  columns: Array<{ id: string; name: string; type: string }>
+  columns: Array<{ id: string; name: string; type: string; options?: any[]; relation?: any; rollup?: any }>
 ): { id: string; cells: Record<string, any> } {
   const cells: Record<string, any> = {};
   const rawCells: any[] = row.cells ?? [];
