@@ -346,6 +346,11 @@ export class AttributeViewService {
   /**
    * Filtre les entrées d'une database par colonne/valeur (recherche partielle,
    * insensible à la casse).
+   *
+   * For bidirectional relation fields: if direct filtering finds incomplete results,
+   * automatically performs a cross-DB lookup on the related database to find all
+   * entries linked via the back-relation. This ensures correct results regardless
+   * of which side of the relation the caller queries from.
    */
   async queryDatabase(
     avId: string,
@@ -363,26 +368,77 @@ export class AttributeViewService {
 
     const lowerValue = value.toLowerCase();
 
-    const filteredEntries = db.entries.filter(entry => {
-      const cellVal = entry.cells[targetCol.id];
-      if (cellVal === null || cellVal === undefined) return false;
+    // For bidirectional relation fields, do a cross-DB lookup to get complete results.
+    // SiYuan's renderAttributeView doesn't always populate relation contents on both sides,
+    // so direct filtering can miss entries. The cross-DB approach reads the target database,
+    // finds matching entries, and uses the back-relation to identify linked entry IDs.
+    if (targetCol.type === 'relation' && targetCol.relation?.isTwoWay && targetCol.relation?.avID && targetCol.relation?.backKeyID) {
+      const crossDbIds = await this.resolveRelationIds(targetCol.relation.avID, targetCol.relation.backKeyID, lowerValue);
+      if (crossDbIds.size > 0) {
+        const filteredEntries = db.entries.filter(entry => crossDbIds.has(entry.id));
+        return { ...db, entries: filteredEntries, total: filteredEntries.length };
+      }
+    }
 
-      if (Array.isArray(cellVal)) {
-        return cellVal.some(v => String(v).toLowerCase().includes(lowerValue));
-      }
-      if (typeof cellVal === 'object') {
-        const contents: any[] = cellVal.contents ?? [];
-        if (contents.length > 0) {
-          return contents.some((c: any) =>
-            String(c?.content ?? c).toLowerCase().includes(lowerValue)
-          );
-        }
-        return JSON.stringify(cellVal).toLowerCase().includes(lowerValue);
-      }
-      return String(cellVal).toLowerCase().includes(lowerValue);
+    // Fallback: direct cell value matching (works for non-relation fields and one-way relations)
+    const filteredEntries = db.entries.filter(entry => {
+      return this.cellMatchesValue(entry.cells[targetCol.id], lowerValue);
     });
 
     return { ...db, entries: filteredEntries, total: filteredEntries.length };
+  }
+
+  /**
+   * Check if a cell value matches a search string (partial, case-insensitive).
+   */
+  private cellMatchesValue(cellVal: any, lowerValue: string): boolean {
+    if (cellVal === null || cellVal === undefined) return false;
+
+    if (Array.isArray(cellVal)) {
+      return cellVal.some(v => String(v).toLowerCase().includes(lowerValue));
+    }
+    if (typeof cellVal === 'object') {
+      const contents: any[] = cellVal.contents ?? [];
+      if (contents.length > 0) {
+        return contents.some((c: any) =>
+          String(c?.block?.content ?? c?.content ?? c).toLowerCase().includes(lowerValue)
+        );
+      }
+      if (cellVal.content !== undefined) {
+        return String(cellVal.content).toLowerCase().includes(lowerValue);
+      }
+      return JSON.stringify(cellVal).toLowerCase().includes(lowerValue);
+    }
+    return String(cellVal).toLowerCase().includes(lowerValue);
+  }
+
+  /**
+   * Cross-DB relation lookup: reads the target AV, finds entries matching the value
+   * in their primary key, then returns the set of entry IDs from the back-relation field.
+   * This gives us the complete list of entries linked via a bidirectional relation.
+   */
+  private async resolveRelationIds(targetAvId: string, backKeyID: string, lowerValue: string): Promise<Set<string>> {
+    try {
+      const targetDb = await this.renderDatabase(targetAvId);
+      const matchedIds = new Set<string>();
+
+      for (const entry of targetDb.entries) {
+        // Check if any cell in this entry matches the search value (primary key or any text field)
+        const primaryKey = Object.values(entry.cells).find((c: any) => c && typeof c === 'object' && 'content' in c && c.content);
+        if (primaryKey && String((primaryKey as any).content).toLowerCase().includes(lowerValue)) {
+          // Found a match — now get the back-relation field to find linked entry IDs
+          const backRelation = entry.cells[backKeyID];
+          if (backRelation && backRelation.ids) {
+            for (const id of backRelation.ids) {
+              matchedIds.add(id);
+            }
+          }
+        }
+      }
+      return matchedIds;
+    } catch {
+      return new Set();
+    }
   }
 
   /**
