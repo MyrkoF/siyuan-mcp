@@ -6,9 +6,9 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for [SiYuan Note](https://b3log.org/siyuan/), enabling AI assistants (Claude, Cursor, etc.) to read, write, and manage your SiYuan workspace — including full CRUD for **Attribute View databases** (SiYuan's relational database system, similar to Notion databases).
 
-## v2.0 — Optimized for LLMs
+## v2.0.1 — Optimized for LLMs
 
-v2 reduces the tool surface from 70 tools to **17**, because LLMs perform better with fewer, well-designed tools. All read operations are consolidated into `siyuan_sql` (leveraging SiYuan's built-in SQLite), while Attribute View databases retain dedicated tools (they use JSON storage, not SQLite).
+v2 reduces the tool surface from 70 to **26 focused tools** (17 core + 9 database automation), because LLMs perform better with fewer, well-designed tools. All read operations are consolidated into `siyuan_sql` (leveraging SiYuan's built-in SQLite), while Attribute View databases retain dedicated tools (they use JSON storage, not SQLite). v2.0.1 adds 9 tools for view management, select options, doc-backed rows, and relation/rollup field support.
 
 ---
 
@@ -237,7 +237,7 @@ This project is a fork of [GALIAIS/siyuan-mcp-server](https://github.com/GALIAIS
 
 The original project provided the foundational MCP server structure for SiYuan. This fork adds:
 
-- **v2 tool consolidation** — 70 tools reduced to 17 for better LLM performance
+- **v2 tool consolidation** — 70 tools reduced to 26 focused tools for better LLM performance
 - **SQL-first reads** — `siyuan_sql` replaces 15+ read tools
 - **Full Attribute View database CRUD** — create, read, write, update, delete databases and entries
 - **Database embedding** — `create_database` with `parentDocId` embeds the database inside a page
