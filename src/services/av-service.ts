@@ -199,22 +199,19 @@ export class AttributeViewService {
 
     const payload: any = { id: id.trim() };
     if (viewId?.trim()) {
+      // Explicit viewId — use it directly
       payload.viewID = viewId.trim();
     } else {
-      // Auto-select an unfiltered view so results don't depend on GUI state.
-      // First call without viewID to get the list of views, then pick the best one.
+      // Auto-select: first call to get view list, prefer "Default" view,
+      // fall back to current view if no "Default" exists.
       const probe = await this.client.request('/api/av/renderAttributeView', { id: id.trim() });
       if (probe?.code === 0 && probe.data?.views?.length) {
-        const currentView = probe.data.view;
-        const hasFilters = currentView?.filters?.length > 0;
-        if (hasFilters) {
-          // Current view is filtered — look for an unfiltered view
-          const unfilteredView = await this.findUnfilteredView(id, probe.data.views, currentView);
-          if (unfilteredView) {
-            payload.viewID = unfilteredView;
-          }
+        const defaultView = probe.data.views.find((v: any) => v.name === 'Default');
+        if (defaultView && defaultView.id !== probe.data.view?.id) {
+          // "Default" view exists but isn't the current one — re-render with it
+          payload.viewID = defaultView.id;
         } else {
-          // Current view has no filters — use it directly, skip second call
+          // Either no "Default" view or it's already the current one — use probe result
           return this.parseRawResponse(id, probe.data);
         }
       }
@@ -229,28 +226,6 @@ export class AttributeViewService {
     }
 
     return this.parseRawResponse(id, response.data);
-  }
-
-  /**
-   * Find an unfiltered view by rendering each candidate view.
-   * Returns the viewID of the first view with no filters, or null.
-   */
-  private async findUnfilteredView(
-    avId: string,
-    views: any[],
-    currentView: any
-  ): Promise<string | null> {
-    for (const v of views) {
-      if (v.id === currentView?.id) continue; // skip current (already known filtered)
-      const probe = await this.client.request('/api/av/renderAttributeView', {
-        id: avId.trim(),
-        viewID: v.id
-      });
-      if (probe?.code === 0 && (!probe.data?.view?.filters?.length)) {
-        return v.id;
-      }
-    }
-    return null; // no unfiltered view found, will use default
   }
 
   /**

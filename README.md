@@ -6,9 +6,11 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for [SiYuan Note](https://b3log.org/siyuan/), enabling AI assistants (Claude, Cursor, etc.) to read, write, and manage your SiYuan workspace — including full CRUD for **Attribute View databases** (SiYuan's relational database system, similar to Notion databases).
 
-## v2.0.1 — Optimized for LLMs
+## v2.1 — Optimized for LLMs
 
-v2 reduces the tool surface from 70 to **26 focused tools** (17 core + 9 database automation), because LLMs perform better with fewer, well-designed tools. All read operations are consolidated into `siyuan_sql` (leveraging SiYuan's built-in SQLite), while Attribute View databases retain dedicated tools (they use JSON storage, not SQLite). v2.0.1 adds 9 tools for view management, select options, doc-backed rows, and relation/rollup field support.
+v2 reduces the tool surface from 70 to **26 focused tools** (17 core + 9 database automation), because LLMs perform better with fewer, well-designed tools. All read operations are consolidated into `siyuan_sql` (leveraging SiYuan's built-in SQLite), while Attribute View databases retain dedicated tools (they use JSON storage, not SQLite).
+
+**v2.1** adds automatic view selection for `read_database` (prefers the unfiltered "Default" view), `viewId` parameter support, and post-write transaction flushing for reliable cross-device sync.
 
 ---
 
@@ -171,6 +173,23 @@ read_database(id: "avId", filter: {field: "Status", value: "Active"})
 update_document(id: "docId", parentId: "targetParentDocId")
 # Combine with rename:
 update_document(id: "docId", title: "New Name", parentId: "targetId")
+```
+
+---
+
+## Database Views & Filtering
+
+SiYuan's `renderAttributeView` API returns data through the lens of a **view** — each view can have its own filters and sorts. By default, the API uses whichever view was last active in the GUI, which means filtered views can hide entries from MCP consumers.
+
+**Convention: "Default" view**
+
+Create a view named **`Default`** (no filters) in each database you want to access programmatically. The MCP server will automatically prefer this view when no `viewId` is specified, ensuring you always get all entries regardless of GUI state.
+
+If no "Default" view exists, the server falls back to the current active view (original behavior).
+
+You can also pass `viewId` explicitly to `read_database` to target any specific view:
+```
+read_database(id: "avId", viewId: "specificViewId")
 ```
 
 ---
