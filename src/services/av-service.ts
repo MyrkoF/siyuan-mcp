@@ -192,14 +192,35 @@ export class AttributeViewService {
    * Rend une database complète (colonnes + toutes les lignes).
    * @param id — Block ID de la database (REQUIS)
    */
-  async renderDatabase(id: string): Promise<AVDatabase> {
+  async renderDatabase(id: string, viewId?: string): Promise<AVDatabase> {
     if (!id || id.trim() === '') {
       throw new Error('Database ID is required');
     }
 
-    const response = await this.client.request('/api/av/renderAttributeView', {
-      id: id.trim()
-    });
+    const payload: any = { id: id.trim() };
+    if (viewId?.trim()) {
+      payload.viewID = viewId.trim();
+    } else {
+      // Auto-select an unfiltered view so results don't depend on GUI state.
+      // First call without viewID to get the list of views, then pick the best one.
+      const probe = await this.client.request('/api/av/renderAttributeView', { id: id.trim() });
+      if (probe?.code === 0 && probe.data?.views?.length) {
+        const currentView = probe.data.view;
+        const hasFilters = currentView?.filters?.length > 0;
+        if (hasFilters) {
+          // Current view is filtered — look for an unfiltered view
+          const unfilteredView = await this.findUnfilteredView(id, probe.data.views, currentView);
+          if (unfilteredView) {
+            payload.viewID = unfilteredView;
+          }
+        } else {
+          // Current view has no filters — use it directly, skip second call
+          return this.parseRawResponse(id, probe.data);
+        }
+      }
+    }
+
+    const response = await this.client.request('/api/av/renderAttributeView', payload);
 
     if (!response || response.code !== 0) {
       throw new Error(
@@ -208,6 +229,28 @@ export class AttributeViewService {
     }
 
     return this.parseRawResponse(id, response.data);
+  }
+
+  /**
+   * Find an unfiltered view by rendering each candidate view.
+   * Returns the viewID of the first view with no filters, or null.
+   */
+  private async findUnfilteredView(
+    avId: string,
+    views: any[],
+    currentView: any
+  ): Promise<string | null> {
+    for (const v of views) {
+      if (v.id === currentView?.id) continue; // skip current (already known filtered)
+      const probe = await this.client.request('/api/av/renderAttributeView', {
+        id: avId.trim(),
+        viewID: v.id
+      });
+      if (probe?.code === 0 && (!probe.data?.view?.filters?.length)) {
+        return v.id;
+      }
+    }
+    return null; // no unfiltered view found, will use default
   }
 
   /**
@@ -355,9 +398,10 @@ export class AttributeViewService {
   async queryDatabase(
     avId: string,
     field: string,
-    value: string
+    value: string,
+    viewId?: string
   ): Promise<AVDatabase> {
-    const db = await this.renderDatabase(avId);
+    const db = await this.renderDatabase(avId, viewId);
 
     const targetCol = findColumn(db.fields, field);
     if (!targetCol) {

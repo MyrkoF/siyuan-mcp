@@ -52,6 +52,10 @@ export const TOOLS: Tool[] = [
           type: 'string',
           description: 'Entry ID to fetch a single entry.'
         },
+        viewId: {
+          type: 'string',
+          description: 'View ID to render. Each view has its own filters/sorts. If omitted, uses the last active view in the GUI. Tip: create a "MCP" view with no filters for unfiltered access.'
+        },
         filter: {
           type: 'object',
           properties: {

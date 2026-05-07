@@ -148,12 +148,12 @@ async function handleReadDatabase(args: any): Promise<StandardResponse> {
 
   // Filter by field value
   if (args.filter?.field && args.filter?.value) {
-    const db = await avService.queryDatabase(args.id, args.filter.field, args.filter.value);
+    const db = await avService.queryDatabase(args.id, args.filter.field, args.filter.value, args.viewId);
     return createStandardResponse(true, `${db.total} matching entries`, db);
   }
 
   // Full database render (default)
-  const db = await avService.renderDatabase(args.id);
+  const db = await avService.renderDatabase(args.id, args.viewId);
   return createStandardResponse(true, `Database "${db.name}" — ${db.total} entries, ${db.fields.length} fields`, db);
 }
 
