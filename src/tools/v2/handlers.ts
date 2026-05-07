@@ -18,9 +18,23 @@ const client: SiyuanClient = createSiyuanClient({ autoDiscoverPort: true });
 const avService = new AttributeViewService(client);
 const docService = new DocService(client);
 
+// ── Write tools that need flush after execution ────────────────────────────
+
+const WRITE_TOOLS = new Set([
+  'create_document', 'update_document', 'delete_document',
+  'insert_block', 'update_block', 'batch_block_ops',
+  'create_database', 'write_db_rows', 'update_db_cells', 'delete_db_rows',
+  'add_view', 'update_view', 'delete_view',
+  'bind_row_to_doc', 'create_doc_backed_row',
+  'set_select_options', 'rename_notebook', 'manage_db_fields',
+  'set_block_attrs',
+]);
+
 // ── Main dispatch ───────────────────────────────────────────────────────────
 
 export async function handleToolCall(name: string, args: any): Promise<StandardResponse> {
+  let result: StandardResponse;
+
   switch (name) {
     // READ
     case 'siyuan_sql':
@@ -36,59 +50,66 @@ export async function handleToolCall(name: string, args: any): Promise<StandardR
 
     // DOCUMENTS
     case 'create_document':
-      return handleCreateDocument(args);
+      result = await handleCreateDocument(args); break;
     case 'update_document':
-      return handleUpdateDocument(args);
+      result = await handleUpdateDocument(args); break;
     case 'delete_document':
-      return handleDeleteDocument(args);
+      result = await handleDeleteDocument(args); break;
 
     // BLOCKS
     case 'insert_block':
-      return handleInsertBlock(args);
+      result = await handleInsertBlock(args); break;
     case 'update_block':
-      return handleUpdateBlock(args);
+      result = await handleUpdateBlock(args); break;
     case 'batch_block_ops':
-      return handleBatchBlockOps(args);
+      result = await handleBatchBlockOps(args); break;
 
     // ATTRIBUTE VIEW
     case 'create_database':
-      return handleCreateDatabase(args);
+      result = await handleCreateDatabase(args); break;
     case 'write_db_rows':
-      return handleWriteDbRows(args);
+      result = await handleWriteDbRows(args); break;
     case 'update_db_cells':
-      return handleUpdateDbCells(args);
+      result = await handleUpdateDbCells(args); break;
     case 'delete_db_rows':
-      return handleDeleteDbRows(args);
+      result = await handleDeleteDbRows(args); break;
     case 'list_views':
       return handleListViews(args);
     case 'add_view':
-      return handleAddView(args);
+      result = await handleAddView(args); break;
     case 'update_view':
-      return handleUpdateView(args);
+      result = await handleUpdateView(args); break;
     case 'delete_view':
-      return handleDeleteView(args);
+      result = await handleDeleteView(args); break;
     case 'bind_row_to_doc':
-      return handleBindRowToDoc(args);
+      result = await handleBindRowToDoc(args); break;
     case 'create_doc_backed_row':
-      return handleCreateDocBackedRow(args);
+      result = await handleCreateDocBackedRow(args); break;
     case 'list_select_options':
       return handleListSelectOptions(args);
     case 'set_select_options':
-      return handleSetSelectOptions(args);
+      result = await handleSetSelectOptions(args); break;
     case 'rename_notebook':
-      return handleRenameNotebook(args);
+      result = await handleRenameNotebook(args); break;
     case 'manage_db_fields':
-      return handleManageDbFields(args);
+      result = await handleManageDbFields(args); break;
 
     // MISC
     case 'set_block_attrs':
-      return handleSetBlockAttrs(args);
+      result = await handleSetBlockAttrs(args); break;
     case 'upload_asset':
       return handleUploadAsset(args);
 
     default:
       return createStandardResponse(false, `Unknown tool: ${name}`, null, `Tool "${name}" is not available`);
   }
+
+  // Flush transactions after write operations so .sy files are updated and sync picks up changes
+  if (WRITE_TOOLS.has(name)) {
+    await client.flushTransaction();
+  }
+
+  return result;
 }
 
 // ── Handlers ────────────────────────────────────────────────────────────────

@@ -26,6 +26,8 @@ export interface SiyuanClient {
   filePut(workspacePath: string, content: string): Promise<void>;
   /** Convenience: full-text search via /api/search/fullTextSearchBlock */
   searchNotes(query: string, limit?: number): Promise<any[]>;
+  /** Flush pending transactions to .sy files + SQLite index. Call after writes to ensure sync picks up changes. */
+  flushTransaction(): Promise<void>;
 
   // Operation modules
   blocks: BlockOperations;
@@ -155,6 +157,14 @@ export function createSiyuanClient(config: SiyuanClientConfig): SiyuanClient {
       });
       if (response.data?.code !== 0) {
         throw new Error(`putFile échoué: ${response.data?.msg ?? 'erreur inconnue'}`);
+      }
+    },
+
+    async flushTransaction(): Promise<void> {
+      try {
+        await request('/api/sqlite/flushTransaction', {});
+      } catch (err) {
+        logger.warn('flushTransaction failed (non-fatal)', err);
       }
     },
 
